@@ -4,32 +4,40 @@ import (
 	"context"
 	"fmt"
 	"strings"
+	"vault-copy/internal/logger"
 )
 
-func (c *Client) WriteSecret(path string, data map[string]interface{}) error {
+func (c *Client) WriteSecret(path string, data map[string]interface{}, logger *logger.Logger) error {
 	// Для KV v2 нужно обернуть данные
 	writeData := map[string]interface{}{
 		"data": data,
 	}
 
+	logger.Verbose("Запись секрета в Vault: %s", path)
 	_, err := c.client.Logical().Write(path, writeData)
 	if err != nil {
+		logger.Error("Ошибка записи секрета %s: %v", path, err)
 		return fmt.Errorf("ошибка записи секрета %s: %v", path, err)
 	}
 
+	logger.Verbose("Успешно записан секрет: %s", path)
 	return nil
 }
 
-func (c *Client) SecretExists(path string) (bool, error) {
+func (c *Client) SecretExists(path string, logger *logger.Logger) (bool, error) {
+	logger.Verbose("Проверка существования секрета: %s", path)
 	secret, err := c.client.Logical().Read(path)
 	if err != nil {
+		logger.Error("Ошибка проверки существования секрета %s: %v", path, err)
 		return false, err
 	}
 
-	return secret != nil, nil
+	exists := secret != nil
+	logger.Verbose("Секрет %s существует: %t", path, exists)
+	return exists, nil
 }
 
-func (c *Client) BatchWriteSecrets(ctx context.Context, secrets <-chan *Secret, basePath string) <-chan error {
+func (c *Client) BatchWriteSecrets(ctx context.Context, secrets <-chan *Secret, basePath string, logger *logger.Logger) <-chan error {
 	errChan := make(chan error, 1)
 
 	go func() {
@@ -46,7 +54,7 @@ func (c *Client) BatchWriteSecrets(ctx context.Context, secrets <-chan *Secret, 
 			// Преобразуем путь из source в destination
 			destPath := transformPath(secret.Path, basePath)
 
-			err := c.WriteSecret(destPath, secret.Data)
+			err := c.WriteSecret(destPath, secret.Data, logger)
 			if err != nil {
 				errChan <- err
 			}

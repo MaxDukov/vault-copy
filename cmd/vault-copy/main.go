@@ -20,6 +20,7 @@ func main() {
 	dryRun := flag.Bool("dry-run", false, "Показать что будет скопировано без выполнения")
 	overwrite := flag.Bool("overwrite", false, "Перезаписывать существующие секреты (по умолчанию отключено)")
 	parallel := flag.Int("parallel", 5, "Количество параллельных операций")
+	verbose := flag.Bool("v", false, "Включить подробный вывод")
 
 	// Флаги для source Vault
 	sourceAddr := flag.String("src-addr", "", "URL Vault-источника (по-умолчанию будет использована переменная окружения VAULT_SOURCE_ADDR)")
@@ -53,6 +54,7 @@ export VAULT_SOURCE_ADDR="https://vault1:8200"
 		*recursive,
 		*dryRun,
 		*overwrite,
+		*verbose,
 		*parallel,
 		*sourceAddr,
 		*sourceToken,

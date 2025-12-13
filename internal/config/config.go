@@ -14,6 +14,7 @@ type Config struct {
 	DryRun          bool
 	Overwrite       bool
 	ParallelWorkers int
+	Verbose         bool
 
 	// Source Vault
 	SourceAddr  string
@@ -26,7 +27,7 @@ type Config struct {
 
 func NewConfig(
 	sourcePath, destinationPath string,
-	recursive, dryRun, overwrite bool,
+	recursive, dryRun, overwrite, verbose bool,
 	parallelWorkers int,
 	sourceAddr, sourceToken,
 	destAddr, destToken string,
@@ -39,8 +40,8 @@ func NewConfig(
 		DryRun:          dryRun,
 		Overwrite:       overwrite,
 		ParallelWorkers: parallelWorkers,
+		Verbose:         verbose,
 	}
-
 	// Получение конфигурации  Vault истоника
 	if sourceAddr == "" {
 		sourceAddr = os.Getenv("VAULT_SOURCE_ADDR")

@@ -11,6 +11,9 @@ type Client struct {
 	config *ClientConfig
 }
 
+// Убедимся, что Client реализует ClientInterface
+var _ ClientInterface = (*Client)(nil)
+
 type ClientConfig struct {
 	Addr  string
 	Token string

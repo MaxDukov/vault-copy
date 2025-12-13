@@ -29,7 +29,9 @@ func TestSyncSingleSecret(t *testing.T) {
 		ParallelWorkers: 1,
 	}
 
-	manager := NewManager(sourceMock, destMock, cfg)
+	sourceAdapter := mocks.NewAdapter(sourceMock)
+	destAdapter := mocks.NewAdapter(destMock)
+	manager := NewManager(sourceAdapter, destAdapter, cfg)
 
 	stats, err := manager.Sync(context.Background())
 	if err != nil {
@@ -45,7 +47,7 @@ func TestSyncSingleSecret(t *testing.T) {
 	}
 
 	// Verify secret was written to destination
-	destSecret, err := destMock.ReadSecret("secret/data/dest/app")
+	destSecret, err := destAdapter.ReadSecret("secret/data/dest/app", nil)
 	if err != nil {
 		t.Fatalf("Read secret from destination error = %v", err)
 	}
@@ -75,7 +77,9 @@ func TestSyncSingleSecretDryRun(t *testing.T) {
 		ParallelWorkers: 1,
 	}
 
-	manager := NewManager(sourceMock, destMock, cfg)
+	sourceAdapter := mocks.NewAdapter(sourceMock)
+	destAdapter := mocks.NewAdapter(destMock)
+	manager := NewManager(sourceAdapter, destAdapter, cfg)
 
 	stats, err := manager.Sync(context.Background())
 	if err != nil {
@@ -91,7 +95,7 @@ func TestSyncSingleSecretDryRun(t *testing.T) {
 	}
 
 	// In dry run mode, secret should NOT be written
-	destSecret, _ := destMock.ReadSecret("secret/data/dest/app")
+	destSecret, _ := destAdapter.ReadSecret("secret/data/dest/app", nil)
 	if destSecret != nil {
 		t.Error("Secret was written in dry run mode")
 	}
@@ -116,7 +120,9 @@ func TestSyncSingleSecretAlreadyExists(t *testing.T) {
 		ParallelWorkers: 1,
 	}
 
-	manager := NewManager(sourceMock, destMock, cfg)
+	sourceAdapter := mocks.NewAdapter(sourceMock)
+	destAdapter := mocks.NewAdapter(destMock)
+	manager := NewManager(sourceAdapter, destAdapter, cfg)
 
 	stats, err := manager.Sync(context.Background())
 	if err != nil {
@@ -136,7 +142,7 @@ func TestSyncSingleSecretAlreadyExists(t *testing.T) {
 	}
 
 	// Verify destination secret was NOT overwritten
-	destSecret, _ := destMock.ReadSecret("secret/data/dest/app")
+	destSecret, _ := destAdapter.ReadSecret("secret/data/dest/app", nil)
 	if destSecret.Data["key"] != "old" {
 		t.Errorf("Destination secret was overwritten: key = %v, want old", destSecret.Data["key"])
 	}
@@ -161,7 +167,9 @@ func TestSyncSingleSecretOverwrite(t *testing.T) {
 		ParallelWorkers: 1,
 	}
 
-	manager := NewManager(sourceMock, destMock, cfg)
+	sourceAdapter := mocks.NewAdapter(sourceMock)
+	destAdapter := mocks.NewAdapter(destMock)
+	manager := NewManager(sourceAdapter, destAdapter, cfg)
 
 	stats, err := manager.Sync(context.Background())
 	if err != nil {
@@ -173,7 +181,7 @@ func TestSyncSingleSecretOverwrite(t *testing.T) {
 	}
 
 	// Verify destination secret WAS overwritten
-	destSecret, _ := destMock.ReadSecret("secret/data/dest/app")
+	destSecret, _ := destAdapter.ReadSecret("secret/data/dest/app", nil)
 	if destSecret.Data["key"] != "new" {
 		t.Errorf("Destination secret was not overwritten: key = %v, want new", destSecret.Data["key"])
 	}
@@ -205,7 +213,9 @@ func TestSyncDirectory(t *testing.T) {
 		ParallelWorkers: 2,
 	}
 
-	manager := NewManager(sourceMock, destMock, cfg)
+	sourceAdapter := mocks.NewAdapter(sourceMock)
+	destAdapter := mocks.NewAdapter(destMock)
+	manager := NewManager(sourceAdapter, destAdapter, cfg)
 
 	stats, err := manager.Sync(context.Background())
 	if err != nil {
@@ -221,12 +231,12 @@ func TestSyncDirectory(t *testing.T) {
 	}
 
 	// Verify all secrets were copied
-	app1Secret, _ := destMock.ReadSecret("secret/data/dest/apps/app1")
+	app1Secret, _ := destAdapter.ReadSecret("secret/data/dest/apps/app1", nil)
 	if app1Secret == nil {
 		t.Error("App1 secret was not copied")
 	}
 
-	app2Secret, _ := destMock.ReadSecret("secret/data/dest/apps/app2")
+	app2Secret, _ := destAdapter.ReadSecret("secret/data/dest/apps/app2", nil)
 	if app2Secret == nil {
 		t.Error("App2 secret was not copied")
 	}
@@ -267,7 +277,9 @@ func TestSyncDirectoryWithSubdirectories(t *testing.T) {
 		ParallelWorkers: 3,
 	}
 
-	manager := NewManager(sourceMock, destMock, cfg)
+	sourceAdapter := mocks.NewAdapter(sourceMock)
+	destAdapter := mocks.NewAdapter(destMock)
+	manager := NewManager(sourceAdapter, destAdapter, cfg)
 
 	stats, err := manager.Sync(context.Background())
 	if err != nil {
@@ -303,7 +315,9 @@ func TestSyncErrorHandling(t *testing.T) {
 		ParallelWorkers: 1,
 	}
 
-	manager := NewManager(sourceMock, destMock, cfg)
+	sourceAdapter := mocks.NewAdapter(sourceMock)
+	destAdapter := mocks.NewAdapter(destMock)
+	manager := NewManager(sourceAdapter, destAdapter, cfg)
 
 	// This should handle the error gracefully
 	stats, err := manager.Sync(context.Background())
@@ -317,7 +331,7 @@ func TestSyncErrorHandling(t *testing.T) {
 	}
 
 	// app1 should still be written successfully
-	app1Secret, _ := destMock.ReadSecret("secret/data/dest/app1")
+	app1Secret, _ := destAdapter.ReadSecret("secret/data/dest/app1", nil)
 	if app1Secret == nil {
 		t.Error("App1 secret should have been written despite app2 error")
 	}

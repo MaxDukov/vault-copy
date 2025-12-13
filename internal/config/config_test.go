@@ -139,6 +139,7 @@ func TestNewConfig(t *testing.T) {
 				false, // recursive
 				false, // dryRun
 				false, // overwrite
+				false, // verbose
 				5,     // parallelWorkers
 				sourceAddr,
 				sourceToken,
