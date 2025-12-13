@@ -95,15 +95,18 @@ func NewConfig(
 }
 
 func normalizePath(path string) string {
-	// Убедимся что путь начинается с правильного префикса для KV v2
-	if !strings.HasPrefix(path, "secret/data/") && !strings.HasPrefix(path, "kv/data/") {
-		// Пробуем определить движок
-		parts := strings.SplitN(path, "/", 2)
-		if len(parts) == 2 {
-			// Если уже есть движок в пути, добавляем data/
-			return parts[0] + "/data/" + parts[1]
-		}
+	// Не изменяем пути, которые уже содержат /data/ или не содержат движка KV
+	if strings.Contains(path, "/data/") || (!strings.HasPrefix(path, "secret/") && !strings.HasPrefix(path, "kv/")) {
+		return path
 	}
+
+	// Для путей с префиксом secret/ или kv/ проверяем, содержит ли путь уже data
+	if strings.HasPrefix(path, "secret/") || strings.HasPrefix(path, "kv/") {
+		// Если путь не содержит /data/, то не добавляем его автоматически
+		// Позволяем Vault API самому определить формат
+		return path
+	}
+
 	return path
 }
 
