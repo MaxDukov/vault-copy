@@ -115,7 +115,7 @@ func (m *MockClient) GetAllSecrets(ctx context.Context, rootPath string, logger 
 }
 
 func (m *MockClient) collectSecrets(ctx context.Context, rootPath string, secretsChan chan *vault.Secret, errChan chan error) {
-	// Check if rootPath is a secret
+	// First check if rootPath itself is a secret
 	if secret, ok := m.Secrets[rootPath]; ok {
 		select {
 		case <-ctx.Done():
@@ -125,28 +125,36 @@ func (m *MockClient) collectSecrets(ctx context.Context, rootPath string, secret
 		}
 	}
 
-	// Check if rootPath is a directory
-	if isDir, ok := m.Directories[rootPath]; ok && isDir {
+	// Then check if it's a directory
+	isDir, err := m.IsDirectory(rootPath, nil)
+	if err != nil {
+		errChan <- err
+		return
+	}
+
+	if isDir {
 		// Get list of items in directory
-		if items, ok := m.ListResults[rootPath]; ok {
-			// For each item, check if it's a secret or directory
-			for _, item := range items {
-				fullPath := rootPath + "/" + item
-
-				// Recursively process item
-				m.collectSecrets(ctx, fullPath, secretsChan, errChan)
-			}
+		items, err := m.ListSecrets(rootPath, nil)
+		if err != nil {
+			errChan <- err
+			return
 		}
-	} else {
-		// Check if in List results list
-		// This could be a case where the path is not marked as a directory,
-		// but it has a list of items
-		if items, ok := m.ListResults[rootPath]; ok {
-			// For each item, check if it's a secret or directory
-			for _, item := range items {
-				fullPath := rootPath + "/" + item
 
-				// Recursively process item
+		// For each item, check if it's a secret or directory
+		for _, item := range items {
+			fullPath := buildPath(rootPath, item)
+			// Check if item is a secret
+			if secret, ok := m.Secrets[fullPath]; ok {
+				select {
+				case <-ctx.Done():
+					errChan <- ctx.Err()
+					return
+				case secretsChan <- secret:
+				}
+			}
+			// Recursively process item (whether it's a directory or not)
+			// But only if it's a subdirectory (not the same path)
+			if fullPath != rootPath && strings.HasPrefix(fullPath, rootPath+"/") {
 				m.collectSecrets(ctx, fullPath, secretsChan, errChan)
 			}
 		}
@@ -289,6 +297,15 @@ func (m *MockClient) GetKVEngine(path string) (string, error) {
 		return "secret", nil // Default
 	}
 	return parts[0], nil
+}
+
+// buildPath constructs a full path from a base path and an item name.
+// It ensures proper path separators are used.
+func buildPath(base, item string) string {
+	if strings.HasSuffix(base, "/") {
+		return base + item
+	}
+	return base + "/" + item
 }
 
 func isSubPath(path, root string) bool {

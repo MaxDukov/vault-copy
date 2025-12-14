@@ -1,33 +1,33 @@
 package mocks
 
 import (
-	"testing"
+	"log"
+	"os"
 )
 
-type TestLogger struct {
-	t *testing.T
+// Logger is a mock logger for testing
+type Logger struct {
+	logger *log.Logger
 }
 
-func NewTestLogger(t *testing.T) *TestLogger {
-	return &TestLogger{t: t}
+// NewLogger creates a new mock logger
+func NewLogger() *Logger {
+	return &Logger{
+		logger: log.New(os.Stdout, "", 0),
+	}
 }
 
-func (l *TestLogger) Verbose(format string, v ...interface{}) {
-	l.t.Logf("[VERBOSE] "+format, v...)
+// Info logs an info message
+func (l *Logger) Info(format string, v ...interface{}) {
+	l.logger.Printf("[INFO] "+format, v...)
 }
 
-func (l *TestLogger) Info(format string, v ...interface{}) {
-	l.t.Logf("[INFO] "+format, v...)
+// Error logs an error message
+func (l *Logger) Error(format string, v ...interface{}) {
+	l.logger.Printf("[ERROR] "+format, v...)
 }
 
-func (l *TestLogger) Error(format string, v ...interface{}) {
-	l.t.Logf("[ERROR] "+format, v...)
-}
-
-func (l *TestLogger) Debug(format string, v ...interface{}) {
-	l.t.Logf("[DEBUG] "+format, v...)
-}
-
-func (l *TestLogger) Fatal(format string, v ...interface{}) {
-	l.t.Fatalf(format, v...)
+// Verbose logs a verbose message
+func (l *Logger) Verbose(format string, v ...interface{}) {
+	l.logger.Printf("[VERBOSE] "+format, v...)
 }

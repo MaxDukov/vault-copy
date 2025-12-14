@@ -1,6 +1,7 @@
 package utils
 
 import (
+	"reflect"
 	"testing"
 )
 
@@ -156,11 +157,8 @@ func TestSafeMapLookup(t *testing.T) {
 				t.Errorf("SafeMapLookup() ok = %v, want %v", ok, tt.wantOk)
 			}
 
-			if ok && got != tt.want {
-				// For comparing nested maps, a more complex comparator is needed
-				if tt.key != "nested" && got != tt.want {
-					t.Errorf("SafeMapLookup() = %v, want %v", got, tt.want)
-				}
+			if ok && !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("SafeMapLookup() = %v, want %v", got, tt.want)
 			}
 		})
 	}

@@ -19,6 +19,10 @@ func IsSubPath(path, root string) bool {
 	if root == "" {
 		return true
 	}
+
+	// Remove trailing slash from root for comparison
+	root = strings.TrimSuffix(root, "/")
+
 	if len(path) < len(root) {
 		return false
 	}
