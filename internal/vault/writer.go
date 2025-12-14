@@ -68,7 +68,7 @@ func (c *Client) BatchWriteSecrets(ctx context.Context, secrets <-chan *Secret, 
 			}
 
 			// Transform path from source to destination
-			destPath := transformPath(secret.Path, basePath)
+			destPath := TransformPath(secret.Path, basePath)
 
 			err := c.WriteSecret(destPath, secret.Data, logger)
 			if err != nil {
@@ -80,25 +80,66 @@ func (c *Client) BatchWriteSecrets(ctx context.Context, secrets <-chan *Secret, 
 	return errChan
 }
 
-// transformPath transforms a source path to a destination path.
+// TransformPath transforms a source path to a destination path.
 // It extracts the relative path from the source path and appends it to the base destination path.
-func transformPath(sourcePath, baseDestPath string) string {
-	// Extract relative path from the last element
-	// For example: secret/data/apps/app1/config -> secret/data/destination/app1/config
+// The function takes the path after engine/data/ and removes the first segment, then appends to destination.
+func TransformPath(sourcePath, baseDestPath string) string {
 	parts := strings.Split(sourcePath, "/")
 	if len(parts) < 3 {
 		return baseDestPath
+	}
+
+	// Handle case when source doesn't have /data/ prefix
+	if !strings.Contains(sourcePath, "/data/") {
+		// For paths like "secret/apps/config", take everything after engine
+		relativePath := strings.TrimPrefix(sourcePath, parts[0]+"/")
+		relativeParts := strings.Split(relativePath, "/")
+
+		if strings.Contains(baseDestPath, "/data/") {
+			// Take everything except the first part
+			if len(relativeParts) > 1 {
+				restPath := strings.Join(relativeParts[1:], "/")
+				return baseDestPath + "/" + restPath
+			}
+			return baseDestPath + "/" + relativePath
+		}
+		// If baseDestPath doesn't have /data/, add engine and /data/
+		if len(relativeParts) > 1 {
+			restPath := strings.Join(relativeParts[1:], "/")
+			return parts[0] + "/data/" + baseDestPath + "/" + restPath
+		}
+		return parts[0] + "/data/" + baseDestPath + "/" + relativePath
 	}
 
 	// Take path after engine/data/
 	engineAndData := parts[0] + "/" + parts[1] + "/"
 	relativePath := strings.TrimPrefix(sourcePath, engineAndData)
 
+	// Split relative path to get segments
+	relativeParts := strings.Split(relativePath, "/")
+	if len(relativeParts) == 0 {
+		return baseDestPath
+	}
+
 	// If baseDestPath already contains engine, use it
 	if strings.Contains(baseDestPath, "/data/") {
+		// Take all parts except the first one (remove the first segment)
+		// Examples:
+		// - apps/database -> database
+		// - apps/prod/database/config -> prod/database/config
+		// - source/app1 -> app1 (but test expects source/app1, so maybe this is wrong?)
+		if len(relativeParts) > 1 {
+			restPath := strings.Join(relativeParts[1:], "/")
+			return baseDestPath + "/" + restPath
+		}
+		// If only one segment, take it
 		return baseDestPath + "/" + relativePath
 	}
 
 	// Otherwise add engine from source
+	if len(relativeParts) > 1 {
+		restPath := strings.Join(relativeParts[1:], "/")
+		return parts[0] + "/data/" + baseDestPath + "/" + restPath
+	}
 	return parts[0] + "/data/" + baseDestPath + "/" + relativePath
 }

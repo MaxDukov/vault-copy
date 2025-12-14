@@ -1,4 +1,4 @@
-package vault
+package vault_test
 
 import (
 	"context"
@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	"vault-copy/internal/vault"
 	"vault-copy/mocks"
 )
 
@@ -91,6 +92,9 @@ func TestGetAllSecrets(t *testing.T) {
 
 	// Setup test data
 	secrets := map[string]map[string]interface{}{
+		"secret/data/apps": {
+			"config": "apps-config",
+		},
 		"secret/data/apps/db": {
 			"host": "localhost",
 			"port": "5432",
@@ -116,7 +120,7 @@ func TestGetAllSecrets(t *testing.T) {
 
 	secretsChan, errChan := mockClient.GetAllSecrets(ctx, "secret/data/apps", nil)
 
-	var receivedSecrets []*Secret
+	var receivedSecrets []*vault.Secret
 	for secret := range secretsChan {
 		receivedSecrets = append(receivedSecrets, secret)
 	}
@@ -129,31 +133,47 @@ func TestGetAllSecrets(t *testing.T) {
 	default:
 	}
 
-	// Should receive 2 secrets from apps directory
-	if len(receivedSecrets) != 2 {
-		t.Errorf("GetAllSecrets() received %d secrets, want 2", len(receivedSecrets))
+	// Should receive 3 secrets from apps directory and subdirectories
+	// The mock client's GetAllSecrets implementation collects all secrets recursively
+	// including the root path itself if it's a secret
+	if len(receivedSecrets) != 3 {
+		t.Errorf("GetAllSecrets() received %d secrets, want 3", len(receivedSecrets))
 	}
 
 	// Verify we got the correct secrets
 	foundDB := false
 	foundAPI := false
+	foundAppsDir := false
+
 	for _, secret := range receivedSecrets {
-		if secret.Path == "secret/data/apps/db" {
+		switch secret.Path {
+		case "secret/data/apps/db":
 			foundDB = true
 			if secret.Data["host"] != "localhost" {
 				t.Errorf("DB secret host = %v, want localhost", secret.Data["host"])
 			}
-		}
-		if secret.Path == "secret/data/apps/api" {
+		case "secret/data/apps/api":
 			foundAPI = true
 			if secret.Data["key"] != "api-key" {
 				t.Errorf("API secret key = %v, want api-key", secret.Data["key"])
 			}
+		case "secret/data/apps":
+			foundAppsDir = true
+			if secret.Data["config"] != "apps-config" {
+				t.Errorf("Apps secret config = %v, want apps-config", secret.Data["config"])
+			}
 		}
 	}
 
-	if !foundDB || !foundAPI {
-		t.Error("GetAllSecrets() did not return all expected secrets")
+	// Check that we found the expected secrets
+	if !foundDB {
+		t.Error("GetAllSecrets() did not return db secret")
+	}
+	if !foundAPI {
+		t.Error("GetAllSecrets() did not return api secret")
+	}
+	if !foundAppsDir {
+		t.Error("GetAllSecrets() did not return apps directory secret")
 	}
 }
 
@@ -186,9 +206,9 @@ func TestBuildPath(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := buildPath(tt.base, tt.item)
+			got := vault.BuildPath(tt.base, tt.item)
 			if got != tt.want {
-				t.Errorf("buildPath() = %v, want %v", got, tt.want)
+				t.Errorf("BuildPath() = %v, want %v", got, tt.want)
 			}
 		})
 	}

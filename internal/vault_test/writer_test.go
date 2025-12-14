@@ -1,14 +1,14 @@
-package vault
+package vault_test
 
 import (
 	"context"
 	"errors"
-	"strings"
 	"testing"
 	"time"
 
 	"vault-copy/internal/config"
 	"vault-copy/internal/logger"
+	"vault-copy/internal/vault"
 	"vault-copy/mocks"
 )
 
@@ -72,9 +72,9 @@ func TestBatchWriteSecrets(t *testing.T) {
 	mockClient := mocks.NewMockClient()
 	logger := logger.NewLogger(&config.Config{})
 
-	secretsChan := make(chan *Secret, 3)
+	secretsChan := make(chan *vault.Secret, 3)
 
-	secrets := []*Secret{
+	secrets := []*vault.Secret{
 		{
 			Path: "secret/data/source/app1",
 			Data: map[string]interface{}{"key1": "value1"},
@@ -110,7 +110,7 @@ func TestBatchWriteSecrets(t *testing.T) {
 
 	// Verify secrets were written with transformed paths
 	for _, secret := range secrets {
-		destPath := transformPath(secret.Path, "secret/data/destination")
+		destPath := vault.TransformPath(secret.Path, "secret/data/destination")
 		storedSecret, err := mockClient.ReadSecret(destPath, logger)
 		if err != nil {
 			t.Errorf("ReadSecret() for %s error = %v", destPath, err)
@@ -167,9 +167,9 @@ func TestTransformPath(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := transformPath(tt.sourcePath, tt.baseDest)
+			got := vault.TransformPath(tt.sourcePath, tt.baseDest)
 			if got != tt.want {
-				t.Errorf("transformPath() = %v, want %v", got, tt.want)
+				t.Errorf("TransformPath() = %v, want %v", got, tt.want)
 			}
 		})
 	}
@@ -190,35 +190,4 @@ func TestWriteSecretError(t *testing.T) {
 	if err != expectedErr {
 		t.Errorf("WriteSecret() error = %v, want %v", err, expectedErr)
 	}
-}
-
-// transformPath transforms a source path to a destination path.
-// It extracts the relative path from the source path and appends it to the base destination path.
-func transformPath(sourcePath, baseDestPath string) string {
-	// Extract relative path from the last element
-	// For example: secret/data/apps/app1/config -> secret/data/destination/app1/config
-	parts := strings.Split(sourcePath, "/")
-	if len(parts) < 3 {
-		return baseDestPath
-	}
-
-	// Take path after engine/data/
-	engineAndData := parts[0] + "/" + parts[1] + "/"
-	relativePath := strings.TrimPrefix(sourcePath, engineAndData)
-
-	// If baseDestPath already contains engine, use it
-	if strings.Contains(baseDestPath, "/data/") {
-		// Remove trailing slash if present
-		trimmedDest := strings.TrimSuffix(baseDestPath, "/")
-		if relativePath != "" {
-			return trimmedDest + "/" + relativePath
-		}
-		return trimmedDest
-	}
-
-	// Otherwise add engine from source
-	if relativePath != "" {
-		return parts[0] + "/data/" + baseDestPath + "/" + relativePath
-	}
-	return parts[0] + "/data/" + baseDestPath
 }

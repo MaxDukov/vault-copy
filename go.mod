@@ -2,7 +2,10 @@ module vault-copy
 
 go 1.21
 
-require github.com/hashicorp/vault/api v1.10.0
+require (
+	github.com/hashicorp/vault/api v1.10.0
+	gopkg.in/yaml.v3 v3.0.1
+)
 
 require (
 	github.com/cenkalti/backoff/v3 v3.0.0 // indirect
@@ -23,5 +26,4 @@ require (
 	golang.org/x/net v0.7.0 // indirect
 	golang.org/x/text v0.7.0 // indirect
 	golang.org/x/time v0.0.0-20220411224347-583f2d630306 // indirect
-	gopkg.in/yaml.v3 v3.0.1 // indirect
 )

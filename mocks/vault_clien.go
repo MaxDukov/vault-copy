@@ -104,9 +104,6 @@ func (m *MockClient) GetAllSecrets(ctx context.Context, rootPath string, logger 
 		defer close(secretsChan)
 		defer close(errChan)
 
-		m.mu.RLock()
-		defer m.mu.RUnlock()
-
 		// Recursively collect all secrets
 		m.collectSecrets(ctx, rootPath, secretsChan, errChan)
 	}()
@@ -115,8 +112,19 @@ func (m *MockClient) GetAllSecrets(ctx context.Context, rootPath string, logger 
 }
 
 func (m *MockClient) collectSecrets(ctx context.Context, rootPath string, secretsChan chan *vault.Secret, errChan chan error) {
-	// First check if rootPath itself is a secret
-	if secret, ok := m.Secrets[rootPath]; ok {
+	select {
+	case <-ctx.Done():
+		errChan <- ctx.Err()
+		return
+	default:
+	}
+
+	// Check if rootPath itself is a secret (path can be both secret and directory in Vault)
+	m.mu.RLock()
+	secret, isSecret := m.Secrets[rootPath]
+	m.mu.RUnlock()
+
+	if isSecret {
 		select {
 		case <-ctx.Done():
 			errChan <- ctx.Err()
@@ -125,10 +133,14 @@ func (m *MockClient) collectSecrets(ctx context.Context, rootPath string, secret
 		}
 	}
 
-	// Then check if it's a directory
+	// Check if it's a directory
 	isDir, err := m.IsDirectory(rootPath, nil)
 	if err != nil {
-		errChan <- err
+		select {
+		case <-ctx.Done():
+			errChan <- ctx.Err()
+		case errChan <- err:
+		}
 		return
 	}
 
@@ -136,26 +148,45 @@ func (m *MockClient) collectSecrets(ctx context.Context, rootPath string, secret
 		// Get list of items in directory
 		items, err := m.ListSecrets(rootPath, nil)
 		if err != nil {
-			errChan <- err
+			select {
+			case <-ctx.Done():
+				errChan <- ctx.Err()
+			case errChan <- err:
+			}
 			return
 		}
 
-		// For each item, check if it's a secret or directory
+		// For each item, recursively process it
 		for _, item := range items {
-			fullPath := buildPath(rootPath, item)
-			// Check if item is a secret
-			if secret, ok := m.Secrets[fullPath]; ok {
-				select {
-				case <-ctx.Done():
-					errChan <- ctx.Err()
-					return
-				case secretsChan <- secret:
-				}
+			select {
+			case <-ctx.Done():
+				errChan <- ctx.Err()
+				return
+			default:
 			}
-			// Recursively process item (whether it's a directory or not)
-			// But only if it's a subdirectory (not the same path)
-			if fullPath != rootPath && strings.HasPrefix(fullPath, rootPath+"/") {
-				m.collectSecrets(ctx, fullPath, secretsChan, errChan)
+
+			fullPath := buildPath(rootPath, item)
+			// Recursively process item (whether it's a secret or directory)
+			m.collectSecrets(ctx, fullPath, secretsChan, errChan)
+		}
+	} else if !isSecret {
+		// If not a directory and not already sent as secret, try to read it as a secret
+		secret, err := m.ReadSecret(rootPath, nil)
+		if err != nil {
+			select {
+			case <-ctx.Done():
+				errChan <- ctx.Err()
+			case errChan <- err:
+			}
+			return
+		}
+
+		if secret != nil {
+			select {
+			case <-ctx.Done():
+				errChan <- ctx.Err()
+				return
+			case secretsChan <- secret:
 			}
 		}
 	}
@@ -262,32 +293,61 @@ func (m *MockClient) AddDirectory(path string, items []string) {
 }
 
 func transformPath(sourcePath, baseDestPath string) string {
-	// Extract relative path from the last element
-	// For example: secret/data/apps/app1/config -> secret/data/destination/app1/config
+	// This should match the logic in internal/vault/writer.go TransformPath
 	parts := strings.Split(sourcePath, "/")
 	if len(parts) < 3 {
 		return baseDestPath
+	}
+
+	// Handle case when source doesn't have /data/ prefix
+	if !strings.Contains(sourcePath, "/data/") {
+		// For paths like "secret/apps/config", take everything after engine
+		relativePath := strings.TrimPrefix(sourcePath, parts[0]+"/")
+		relativeParts := strings.Split(relativePath, "/")
+
+		if strings.Contains(baseDestPath, "/data/") {
+			// Take everything except the first part
+			if len(relativeParts) > 1 {
+				restPath := strings.Join(relativeParts[1:], "/")
+				return baseDestPath + "/" + restPath
+			}
+			return baseDestPath + "/" + relativePath
+		}
+		// If baseDestPath doesn't have /data/, add engine and /data/
+		if len(relativeParts) > 1 {
+			restPath := strings.Join(relativeParts[1:], "/")
+			return parts[0] + "/data/" + baseDestPath + "/" + restPath
+		}
+		return parts[0] + "/data/" + baseDestPath + "/" + relativePath
 	}
 
 	// Take path after engine/data/
 	engineAndData := parts[0] + "/" + parts[1] + "/"
 	relativePath := strings.TrimPrefix(sourcePath, engineAndData)
 
+	// Split relative path to get segments
+	relativeParts := strings.Split(relativePath, "/")
+	if len(relativeParts) == 0 {
+		return baseDestPath
+	}
+
 	// If baseDestPath already contains engine, use it
 	if strings.Contains(baseDestPath, "/data/") {
-		// Remove trailing slash if present
-		trimmedDest := strings.TrimSuffix(baseDestPath, "/")
-		if relativePath != "" {
-			return trimmedDest + "/" + relativePath
+		// Take all parts except the first one (remove the first segment)
+		if len(relativeParts) > 1 {
+			restPath := strings.Join(relativeParts[1:], "/")
+			return baseDestPath + "/" + restPath
 		}
-		return trimmedDest
+		// If only one segment, take it
+		return baseDestPath + "/" + relativePath
 	}
 
 	// Otherwise add engine from source
-	if relativePath != "" {
-		return parts[0] + "/data/" + baseDestPath + "/" + relativePath
+	if len(relativeParts) > 1 {
+		restPath := strings.Join(relativeParts[1:], "/")
+		return parts[0] + "/data/" + baseDestPath + "/" + restPath
 	}
-	return parts[0] + "/data/" + baseDestPath
+	return parts[0] + "/data/" + baseDestPath + "/" + relativePath
 }
 
 func (m *MockClient) GetKVEngine(path string) (string, error) {
@@ -306,20 +366,4 @@ func buildPath(base, item string) string {
 		return base + item
 	}
 	return base + "/" + item
-}
-
-func isSubPath(path, root string) bool {
-	if root == "" {
-		return true
-	}
-	if len(path) < len(root) {
-		return false
-	}
-	if path[:len(root)] != root {
-		return false
-	}
-	if len(path) == len(root) {
-		return true
-	}
-	return path[len(root)] == '/'
 }

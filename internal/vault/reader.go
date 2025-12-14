@@ -161,7 +161,7 @@ func (c *Client) walkSecrets(ctx context.Context, path string, secretsChan chan<
 			go func(itemPath string) {
 				defer wg.Done()
 				c.walkSecrets(ctx, itemPath, secretsChan, errChan, logger)
-			}(buildPath(path, item))
+			}(BuildPath(path, item))
 		}
 		wg.Wait()
 	} else {
@@ -181,7 +181,7 @@ func (c *Client) walkSecrets(ctx context.Context, path string, secretsChan chan<
 
 // buildPath constructs a full path from a base path and an item name.
 // It ensures proper path separators are used.
-func buildPath(base, item string) string {
+func BuildPath(base, item string) string {
 	if strings.HasSuffix(base, "/") {
 		return base + item
 	}
