@@ -95,8 +95,8 @@ func NewConfig(
 	}
 
 	cfg := &Config{
-		SourcePath:      normalizePath(sourcePath),
-		DestinationPath: normalizePath(destinationPath),
+		SourcePath:      sourcePath,      // Use path as-is, don't normalize
+		DestinationPath: destinationPath, // Use path as-is, don't normalize
 		Recursive:       recursive,
 		DryRun:          dryRun,
 		Overwrite:       overwrite,

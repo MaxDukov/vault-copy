@@ -167,13 +167,13 @@ func TestNewConfig(t *testing.T) {
 				return
 			}
 
-			// Check values
-			if cfg.SourcePath != normalizePath(source) {
-				t.Errorf("SourcePath = %v, want %v", cfg.SourcePath, normalizePath(source))
+			// Check values - paths should be used as-is without normalization
+			if cfg.SourcePath != source {
+				t.Errorf("SourcePath = %v, want %v", cfg.SourcePath, source)
 			}
 
-			if cfg.DestinationPath != normalizePath(destination) {
-				t.Errorf("DestinationPath = %v, want %v", cfg.DestinationPath, normalizePath(destination))
+			if cfg.DestinationPath != destination {
+				t.Errorf("DestinationPath = %v, want %v", cfg.DestinationPath, destination)
 			}
 
 			// Check tokens
