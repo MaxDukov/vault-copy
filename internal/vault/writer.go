@@ -9,10 +9,19 @@ import (
 
 // WriteSecret writes a secret to Vault at the specified path.
 // For KV v2, it wraps the data in a "data" key as required by the API.
+// For KV v1, it writes the data directly.
 func (c *Client) WriteSecret(path string, data map[string]interface{}, logger *logger.Logger) error {
-	// For KV v2, we need to wrap the data
-	writeData := map[string]interface{}{
-		"data": data,
+	// Determine if this is a KV v2 path (contains /data/)
+	var writeData map[string]interface{}
+
+	if strings.Contains(path, "/data/") {
+		// For KV v2, we need to wrap the data
+		writeData = map[string]interface{}{
+			"data": data,
+		}
+	} else {
+		// For KV v1 or other engines, write data directly
+		writeData = data
 	}
 
 	logger.Verbose("Writing secret to Vault: %s", path)
