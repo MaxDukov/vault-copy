@@ -15,24 +15,24 @@ func NewLogger(cfg *config.Config) *Logger {
 	}
 }
 
-// Verbose выводит сообщение только если включен verbose режим
+// Verbose prints a message only if verbose mode is enabled
 func (l *Logger) Verbose(format string, v ...interface{}) {
 	if l.verbose {
 		log.Printf("[VERBOSE] "+format, v...)
 	}
 }
 
-// Info выводит информационное сообщение
+// Info prints an informational message
 func (l *Logger) Info(format string, v ...interface{}) {
 	log.Printf(format, v...)
 }
 
-// Error выводит сообщение об ошибке
+// Error prints an error message
 func (l *Logger) Error(format string, v ...interface{}) {
 	log.Printf("ERROR: "+format, v...)
 }
 
-// Debug выводит отладочное сообщение только если включен verbose режим
+// Debug prints a debug message only if verbose mode is enabled
 func (l *Logger) Debug(format string, v ...interface{}) {
 	if l.verbose {
 		log.Printf("[DEBUG] "+format, v...)

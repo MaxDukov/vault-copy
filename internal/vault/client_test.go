@@ -7,12 +7,12 @@ import (
 )
 
 func TestNewClient(t *testing.T) {
-	// Тест создание клиента с минимальной конфигурацией
-	// Этот тест требует запущенного Vault или мок-сервера
-	// Для изолированных тестов лучше использовать интерфейсы и моки
+	// Test creating client with minimal configuration
+	// This test requires running Vault or mock server
+	// For isolated tests, it's better to use interfaces and mocks
 
 	t.Run("client creation with defaults", func(t *testing.T) {
-		// Пропускаем в CI, так как требует Vault
+		// Skip in CI as it requires Vault
 		if testing.Short() {
 			t.Skip("Skipping integration test in short mode")
 		}

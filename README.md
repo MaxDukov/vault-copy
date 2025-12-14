@@ -1,82 +1,82 @@
 # vault-copy
 
-Утилита командной строки для копирования секретов между HashiCorp Vault инстансами или внутри одного инстанса.
+Command line utility for copying secrets between HashiCorp Vault instances or within a single instance.
 
-## Описание
+## Description
 
-`vault-copy` - это инструмент командной строки, написанный на Go, который позволяет копировать секреты между различными Vault инстансами или внутри одного инстанса. Поддерживает рекурсивное копирование директорий, параллельную обработку, режим "dry-run" для предварительного просмотра операций и перезапись существующих секретов.
+`vault-copy` is a command-line tool written in Go that allows you to copy secrets between different Vault instances or within a single instance. It supports recursive directory copying, parallel processing, "dry-run" mode for previewing operations, and overwriting existing secrets.
 
-## Установка
+## Installation
 
-Для установки утилиты вам понадобится Go 1.21 или выше.
+To install the utility, you will need Go 1.21 or higher.
 
 ```bash
-# Клонирование репозитория
+# Clone the repository
 git clone <repository-url>
 cd vault-copy
 
-# Сборка проекта
+# Build the project
 go build -o vault-copy cmd/vault-copy/main.go
 
-# (Опционально) Установка в систему
+# (Optional) Install to system
 sudo cp vault-copy /usr/local/bin/
 ```
 
-## Использование
+## Usage
 
-### Базовое использование
+### Basic usage
 
 ```bash
-# Экспорт переменных окружения
+# Export environment variables
 export VAULT_SOURCE_TOKEN="source_token"
 export VAULT_SOURCE_ADDR="https://vault1:8200"
 
-# Копирование секрета
+# Copy secret
 ./vault-copy --src-path="secret/data/apps/production" --dst-path="secret/data/backup/production"
 ```
 
-### Рекурсивное копирование
+### Recursive copying
 
 ```bash
-# Рекурсивное копирование всех секретов из директории
+# Recursively copy all secrets from directory
 ./vault-copy --src-path="secret/data/apps" --dst-path="secret/data/backup/apps" --recursive --parallel=10
 ```
 
-### Копирование между разными Vault инстансами
+### Copying between different Vault instances
 
 ```bash
-# Экспорт переменных окружения для обоих Vault
+# Export environment variables for both Vaults
 export VAULT_SOURCE_TOKEN="source_token"
 export VAULT_SOURCE_ADDR="https://vault1:8200"
 export VAULT_DEST_TOKEN="dest_token"
 export VAULT_DEST_ADDR="https://vault2:8200"
 
-# Копирование между инстансами
+# Copy between instances
 ./vault-copy --src-path="secret/data/apps/production" --dst-path="secret/data/apps/production" --recursive
 ```
 
-### Режим Dry-run
+### Dry-run mode
 
 ```bash
-# Просмотр того, что будет скопировано без выполнения операций
+# Preview what will be copied without performing operations
 ./vault-copy --src-path="secret/data/apps" --dst-path="secret/data/backup/apps" --recursive --dry-run
 ```
 
-## Параметры командной строки
+## Command line parameters
 
-| Параметр | Описание | Обязательный | Значение по умолчанию |
+| Parameter | Description | Required | Default value |
 |----------|----------|--------------|----------------------|
-| `--src-path` | Путь к секрету или папке в источнике | Да | - |
-| `--dst-path` | Путь назначения в целевом Vault | Да | - |
-| `--recursive` | Рекурсивно копировать все секреты из папки | Нет | false |
-| `--dry-run` | Показать что будет скопировано без выполнения | Нет | false |
-| `--overwrite` | Перезаписывать существующие секреты | Нет | false |
-| `--parallel` | Количество параллельных операций | Нет | 5 |
-| `--src-addr` | URL Vault-источника | Нет | VAULT_SOURCE_ADDR или VAULT_ADDR |
-| `--src-token` | Токен для Vault-источника | Нет | VAULT_SOURCE_TOKEN или VAULT_TOKEN |
-| `--dst-addr` | URL Vault-приемника | Нет | VAULT_DEST_ADDR или VAULT_ADDR |
-| `--dst-token` | Токен для Vault-приемника | Нет | VAULT_DEST_TOKEN или VAULT_TOKEN |
+| `--src-path` | Path to secret or folder in source | Yes | - |
+| `--dst-path` | Destination path in target Vault | Yes | - |
+| `--recursive` | Recursively copy all secrets from folder | No | false |
+| `--dry-run` | Show what will be copied without performing | No | false |
+| `--overwrite` | Overwrite existing secrets | No | false |
+| `--parallel` | Number of parallel operations | No | 5 |
+| `--src-addr` | Source Vault URL | No | VAULT_SOURCE_ADDR or VAULT_ADDR |
+| `--src-token` | Token for source Vault | No | VAULT_SOURCE_TOKEN or VAULT_TOKEN |
+| `--dst-addr` | Destination Vault URL | No | VAULT_DEST_ADDR or VAULT_ADDR |
+| `--dst-token` | Token for destination Vault | No | VAULT_DEST_TOKEN or VAULT_TOKEN |
 
-## Лицензия
+## License
 
-Этот проект лицензирован под AGNU License - смотрите файл [LICENSE](LICENSE) для подробностей.
+This project is licensed under the AGNU License - see the [LICENSE](LICENSE) file for details.

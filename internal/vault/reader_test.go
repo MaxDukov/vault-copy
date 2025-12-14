@@ -19,9 +19,9 @@ func TestReadSecret(t *testing.T) {
 
 	mockClient.AddSecret("secret/data/test", testData)
 
-	// Для тестирования реального клиента нужно использовать интерфейс
-	// Вместо этого тестируем логику через мок
-	secret, err := mockClient.ReadSecret("secret/data/test")
+	// For testing real client, we need to use interface
+	// Instead, we test logic through mock
+	secret, err := mockClient.ReadSecret("secret/data/test", nil)
 	if err != nil {
 		t.Fatalf("ReadSecret() error = %v", err)
 	}
@@ -44,7 +44,7 @@ func TestIsDirectory(t *testing.T) {
 
 	mockClient.AddDirectory("secret/data/apps", []string{"app1", "app2"})
 
-	isDir, err := mockClient.IsDirectory("secret/data/apps")
+	isDir, err := mockClient.IsDirectory("secret/data/apps", nil)
 	if err != nil {
 		t.Fatalf("IsDirectory() error = %v", err)
 	}
@@ -54,7 +54,7 @@ func TestIsDirectory(t *testing.T) {
 	}
 
 	// Test non-directory
-	isDir, err = mockClient.IsDirectory("secret/data/nonexistent")
+	isDir, err = mockClient.IsDirectory("secret/data/nonexistent", nil)
 	if err != nil {
 		t.Fatalf("IsDirectory() error for non-existent = %v", err)
 	}
@@ -70,7 +70,7 @@ func TestListSecrets(t *testing.T) {
 	items := []string{"database", "api", "cache"}
 	mockClient.AddDirectory("secret/data/apps", items)
 
-	listed, err := mockClient.ListSecrets("secret/data/apps")
+	listed, err := mockClient.ListSecrets("secret/data/apps", nil)
 	if err != nil {
 		t.Fatalf("ListSecrets() error = %v", err)
 	}
@@ -114,7 +114,7 @@ func TestGetAllSecrets(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	secretsChan, errChan := mockClient.GetAllSecrets(ctx, "secret/data/apps")
+	secretsChan, errChan := mockClient.GetAllSecrets(ctx, "secret/data/apps", nil)
 
 	var receivedSecrets []*Secret
 	for secret := range secretsChan {
@@ -200,7 +200,7 @@ func TestReadSecretError(t *testing.T) {
 	expectedErr := errors.New("permission denied")
 	mockClient.SetReadError("secret/data/restricted", expectedErr)
 
-	_, err := mockClient.ReadSecret("secret/data/restricted")
+	_, err := mockClient.ReadSecret("secret/data/restricted", nil)
 	if err == nil {
 		t.Fatal("ReadSecret() expected error, got nil")
 	}

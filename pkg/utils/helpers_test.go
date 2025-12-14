@@ -157,7 +157,7 @@ func TestSafeMapLookup(t *testing.T) {
 			}
 
 			if ok && got != tt.want {
-				// Для сравнения nested maps нужен более сложный компаратор
+				// For comparing nested maps, a more complex comparator is needed
 				if tt.key != "nested" && got != tt.want {
 					t.Errorf("SafeMapLookup() = %v, want %v", got, tt.want)
 				}

@@ -6,7 +6,7 @@ import (
 	"vault-copy/internal/vault"
 )
 
-// Adapter адаптирует MockClient для реализации vault.ClientInterface
+// Adapter adapts MockClient to implement vault.ClientInterface
 type Adapter struct {
 	client *MockClient
 }

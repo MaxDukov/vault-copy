@@ -4,7 +4,7 @@ import (
 	"strings"
 )
 
-// ContainsString проверяет наличие строки в слайсе
+// ContainsString checks if a string is present in a slice
 func ContainsString(slice []string, str string) bool {
 	for _, s := range slice {
 		if s == str {
@@ -14,7 +14,7 @@ func ContainsString(slice []string, str string) bool {
 	return false
 }
 
-// IsSubPath проверяет, является ли path подпутем root
+// IsSubPath checks if path is a subpath of root
 func IsSubPath(path, root string) bool {
 	if root == "" {
 		return true
@@ -31,7 +31,7 @@ func IsSubPath(path, root string) bool {
 	return path[len(root)] == '/'
 }
 
-// SafeMapLookup безопасное извлечение значения из map
+// SafeMapLookup safely extracts a value from a map
 func SafeMapLookup(m map[string]interface{}, key string) (interface{}, bool) {
 	if m == nil {
 		return nil, false
@@ -40,7 +40,7 @@ func SafeMapLookup(m map[string]interface{}, key string) (interface{}, bool) {
 	return val, ok
 }
 
-// MergeMaps объединяет несколько map (последний имеет приоритет)
+// MergeMaps merges multiple maps (last one has priority)
 func MergeMaps(maps ...map[string]interface{}) map[string]interface{} {
 	result := make(map[string]interface{})
 	for _, m := range maps {
@@ -51,7 +51,7 @@ func MergeMaps(maps ...map[string]interface{}) map[string]interface{} {
 	return result
 }
 
-// TrimPathPrefix удаляет префикс из пути
+// TrimPathPrefix removes prefix from path
 func TrimPathPrefix(path, prefix string) string {
 	if !strings.HasPrefix(path, prefix) {
 		return path
@@ -60,7 +60,7 @@ func TrimPathPrefix(path, prefix string) string {
 	return strings.TrimPrefix(trimmed, "/")
 }
 
-// EnsureTrailingSlash добавляет завершающий слэш если его нет
+// EnsureTrailingSlash adds trailing slash if it doesn't exist
 func EnsureTrailingSlash(path string) string {
 	if path == "" {
 		return "/"
@@ -71,7 +71,7 @@ func EnsureTrailingSlash(path string) string {
 	return path
 }
 
-// SplitPath разбивает путь на части
+// SplitPath splits path into parts
 func SplitPath(path string) []string {
 	return strings.FieldsFunc(path, func(r rune) bool {
 		return r == '/'

@@ -6,7 +6,7 @@ import (
 )
 
 func TestNewConfig(t *testing.T) {
-	// Сохраняем оригинальные переменные окружения
+	// Save original environment variables
 	originalEnv := map[string]string{
 		"VAULT_SOURCE_ADDR":  os.Getenv("VAULT_SOURCE_ADDR"),
 		"VAULT_SOURCE_TOKEN": os.Getenv("VAULT_SOURCE_TOKEN"),
@@ -65,7 +65,7 @@ func TestNewConfig(t *testing.T) {
 				"destination": "secret/data/backup",
 			},
 			wantErr:     true,
-			errContains: "токен source Vault не найден",
+			errContains: "source Vault token not found",
 		},
 		{
 			name: "missing destination token",
@@ -77,7 +77,7 @@ func TestNewConfig(t *testing.T) {
 				"destination": "secret/data/backup",
 			},
 			wantErr:     true,
-			errContains: "токен destination Vault не найден",
+			errContains: "destination Vault token not found",
 		},
 		{
 			name:    "missing source path",
@@ -86,7 +86,7 @@ func TestNewConfig(t *testing.T) {
 				"destination": "secret/data/backup",
 			},
 			wantErr:     true,
-			errContains: "путь источника не может быть пустым",
+			errContains: "source path cannot be empty",
 		},
 		{
 			name:    "missing destination path",
@@ -95,7 +95,7 @@ func TestNewConfig(t *testing.T) {
 				"source": "secret/data/app",
 			},
 			wantErr:     true,
-			errContains: "путь назначения не может быть пустым",
+			errContains: "destination path cannot be empty",
 		},
 		{
 			name: "custom addresses",
@@ -115,17 +115,17 @@ func TestNewConfig(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// Очищаем переменные окружения
+			// Clear environment variables
 			for k := range originalEnv {
 				os.Unsetenv(k)
 			}
 
-			// Устанавливаем тестовые переменные
+			// Set test variables
 			for k, v := range tt.envVars {
 				os.Setenv(k, v)
 			}
 
-			// Подготавливаем аргументы
+			// Prepare arguments
 			source := tt.args["source"]
 			destination := tt.args["destination"]
 			sourceAddr := tt.args["sourceAddr"]
@@ -166,7 +166,7 @@ func TestNewConfig(t *testing.T) {
 				return
 			}
 
-			// Проверяем значения
+			// Check values
 			if cfg.SourcePath != normalizePath(source) {
 				t.Errorf("SourcePath = %v, want %v", cfg.SourcePath, normalizePath(source))
 			}
@@ -175,7 +175,7 @@ func TestNewConfig(t *testing.T) {
 				t.Errorf("DestinationPath = %v, want %v", cfg.DestinationPath, normalizePath(destination))
 			}
 
-			// Проверяем токены
+			// Check tokens
 			expectedSourceToken := tt.envVars["VAULT_SOURCE_TOKEN"]
 			if expectedSourceToken == "" {
 				expectedSourceToken = tt.envVars["VAULT_TOKEN"]

@@ -35,7 +35,7 @@ func NewMockClient() *MockClient {
 }
 
 func (m *MockClient) ReadSecret(path string, logger *logger.Logger) (*vault.Secret, error) {
-	// Игнорируем логгер для тестов
+	// Ignore logger for tests
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 
@@ -52,7 +52,7 @@ func (m *MockClient) ReadSecret(path string, logger *logger.Logger) (*vault.Secr
 }
 
 func (m *MockClient) IsDirectory(path string, logger *logger.Logger) (bool, error) {
-	// Игнорируем логгер для тестов
+	// Ignore logger for tests
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 
@@ -60,12 +60,12 @@ func (m *MockClient) IsDirectory(path string, logger *logger.Logger) (bool, erro
 		return false, err
 	}
 
-	// Проверяем, есть ли в списке директорий
+	// Check if in directory list
 	if isDir, ok := m.Directories[path]; ok {
 		return isDir, nil
 	}
 
-	// Проверяем, есть ли в списке результатов List
+	// Check if in List results list
 	if _, ok := m.ListResults[path]; ok {
 		return true, nil
 	}
@@ -74,7 +74,7 @@ func (m *MockClient) IsDirectory(path string, logger *logger.Logger) (bool, erro
 }
 
 func (m *MockClient) ListSecrets(path string, logger *logger.Logger) ([]string, error) {
-	// Игнорируем логгер для тестов
+	// Ignore logger for tests
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 
@@ -82,7 +82,7 @@ func (m *MockClient) ListSecrets(path string, logger *logger.Logger) ([]string, 
 		return nil, err
 	}
 
-	// Проверяем, является ли путь директорией
+	// Check if path is a directory
 	if isDir, ok := m.Directories[path]; !ok || !isDir {
 		return []string{}, nil
 	}
@@ -96,8 +96,8 @@ func (m *MockClient) ListSecrets(path string, logger *logger.Logger) ([]string, 
 }
 
 func (m *MockClient) GetAllSecrets(ctx context.Context, rootPath string, logger *logger.Logger) (<-chan *vault.Secret, <-chan error) {
-	// Игнорируем логгер для тестов
-	secretsChan := make(chan *vault.Secret, 100) // Увеличиваем буфер
+	// Ignore logger for tests
+	secretsChan := make(chan *vault.Secret, 100) // Increase buffer
 	errChan := make(chan error, 1)
 
 	go func() {
@@ -107,7 +107,7 @@ func (m *MockClient) GetAllSecrets(ctx context.Context, rootPath string, logger 
 		m.mu.RLock()
 		defer m.mu.RUnlock()
 
-		// Рекурсивно собираем все секреты
+		// Recursively collect all secrets
 		m.collectSecrets(ctx, rootPath, secretsChan, errChan)
 	}()
 
@@ -115,7 +115,7 @@ func (m *MockClient) GetAllSecrets(ctx context.Context, rootPath string, logger 
 }
 
 func (m *MockClient) collectSecrets(ctx context.Context, rootPath string, secretsChan chan *vault.Secret, errChan chan error) {
-	// Проверяем, является ли rootPath секретом
+	// Check if rootPath is a secret
 	if secret, ok := m.Secrets[rootPath]; ok {
 		select {
 		case <-ctx.Done():
@@ -125,28 +125,28 @@ func (m *MockClient) collectSecrets(ctx context.Context, rootPath string, secret
 		}
 	}
 
-	// Проверяем, является ли rootPath директорией
+	// Check if rootPath is a directory
 	if isDir, ok := m.Directories[rootPath]; ok && isDir {
-		// Получаем список элементов в директории
+		// Get list of items in directory
 		if items, ok := m.ListResults[rootPath]; ok {
-			// Для каждого элемента проверяем, является ли он секретом или директорией
+			// For each item, check if it's a secret or directory
 			for _, item := range items {
 				fullPath := rootPath + "/" + item
 
-				// Рекурсивно обрабатываем элемент
+				// Recursively process item
 				m.collectSecrets(ctx, fullPath, secretsChan, errChan)
 			}
 		}
 	} else {
-		// Проверяем, есть ли в списке результатов List
-		// Это может быть случай, когда путь не помечен как директория,
-		// но у него есть список элементов
+		// Check if in List results list
+		// This could be a case where the path is not marked as a directory,
+		// but it has a list of items
 		if items, ok := m.ListResults[rootPath]; ok {
-			// Для каждого элемента проверяем, является ли он секретом или директорией
+			// For each item, check if it's a secret or directory
 			for _, item := range items {
 				fullPath := rootPath + "/" + item
 
-				// Рекурсивно обрабатываем элемент
+				// Recursively process item
 				m.collectSecrets(ctx, fullPath, secretsChan, errChan)
 			}
 		}
@@ -154,7 +154,7 @@ func (m *MockClient) collectSecrets(ctx context.Context, rootPath string, secret
 }
 
 func (m *MockClient) WriteSecret(path string, data map[string]interface{}, logger *logger.Logger) error {
-	// Игнорируем логгер для тестов
+	// Ignore logger for tests
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
@@ -171,7 +171,7 @@ func (m *MockClient) WriteSecret(path string, data map[string]interface{}, logge
 }
 
 func (m *MockClient) SecretExists(path string, logger *logger.Logger) (bool, error) {
-	// Игнорируем логгер для тестов
+	// Ignore logger for tests
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 
@@ -179,9 +179,9 @@ func (m *MockClient) SecretExists(path string, logger *logger.Logger) (bool, err
 		return false, err
 	}
 
-	// Проверяем, является ли путь директорией
+	// Check if path is a directory
 	if isDir, ok := m.Directories[path]; ok && isDir {
-		return false, nil // Директории не считаются секретами
+		return false, nil // Directories are not considered secrets
 	}
 
 	_, exists := m.Secrets[path]
@@ -189,7 +189,7 @@ func (m *MockClient) SecretExists(path string, logger *logger.Logger) (bool, err
 }
 
 func (m *MockClient) BatchWriteSecrets(ctx context.Context, secrets <-chan *vault.Secret, basePath string, logger *logger.Logger) <-chan error {
-	// Игнорируем логгер для тестов
+	// Ignore logger for tests
 	errChan := make(chan error, 1)
 
 	go func() {
@@ -203,7 +203,7 @@ func (m *MockClient) BatchWriteSecrets(ctx context.Context, secrets <-chan *vaul
 			default:
 			}
 
-			// Преобразуем путь из source в destination
+			// Transform path from source to destination
 			destPath := transformPath(secret.Path, basePath)
 
 			err := m.WriteSecret(destPath, secret.Data, logger)
@@ -254,20 +254,20 @@ func (m *MockClient) AddDirectory(path string, items []string) {
 }
 
 func transformPath(sourcePath, baseDestPath string) string {
-	// Извлекаем относительный путь от последнего элемента
-	// Например: secret/data/apps/app1/config -> secret/data/destination/app1/config
+	// Extract relative path from the last element
+	// For example: secret/data/apps/app1/config -> secret/data/destination/app1/config
 	parts := strings.Split(sourcePath, "/")
 	if len(parts) < 3 {
 		return baseDestPath
 	}
 
-	// Берем путь после движка/data/
+	// Take path after engine/data/
 	engineAndData := parts[0] + "/" + parts[1] + "/"
 	relativePath := strings.TrimPrefix(sourcePath, engineAndData)
 
-	// Если baseDestPath уже содержит движок, используем его
+	// If baseDestPath already contains engine, use it
 	if strings.Contains(baseDestPath, "/data/") {
-		// Убираем слэш в конце, если есть
+		// Remove trailing slash if present
 		trimmedDest := strings.TrimSuffix(baseDestPath, "/")
 		if relativePath != "" {
 			return trimmedDest + "/" + relativePath
@@ -275,7 +275,7 @@ func transformPath(sourcePath, baseDestPath string) string {
 		return trimmedDest
 	}
 
-	// Иначе добавляем движок из source
+	// Otherwise add engine from source
 	if relativePath != "" {
 		return parts[0] + "/data/" + baseDestPath + "/" + relativePath
 	}
@@ -283,10 +283,10 @@ func transformPath(sourcePath, baseDestPath string) string {
 }
 
 func (m *MockClient) GetKVEngine(path string) (string, error) {
-	// Простая реализация для тестов
+	// Simple implementation for tests
 	parts := strings.SplitN(path, "/", 2)
 	if len(parts) < 2 {
-		return "secret", nil // По умолчанию
+		return "secret", nil // Default
 	}
 	return parts[0], nil
 }

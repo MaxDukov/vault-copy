@@ -13,41 +13,41 @@ import (
 )
 
 func main() {
-	// Парсинг аргументов командной строки
-	srcPath := flag.String("src-path", "", "Путь к секрету или папке в источнике (обязательно)")
-	dstPath := flag.String("dst-path", "", "Путь назначения в целевом Vault (обязательно)")
-	recursive := flag.Bool("recursive", false, "Рекурсивно копировать все секреты из папки(по умолчанию отключено)")
-	dryRun := flag.Bool("dry-run", false, "Показать что будет скопировано без выполнения")
-	overwrite := flag.Bool("overwrite", false, "Перезаписывать существующие секреты (по умолчанию отключено)")
-	parallel := flag.Int("parallel", 5, "Количество параллельных операций")
-	verbose := flag.Bool("v", false, "Включить подробный вывод")
+	// Parse command line arguments
+	srcPath := flag.String("src-path", "", "Source secret or directory path (required)")
+	dstPath := flag.String("dst-path", "", "Destination path in target Vault (required)")
+	recursive := flag.Bool("recursive", false, "Recursively copy all secrets from folder (disabled by default)")
+	dryRun := flag.Bool("dry-run", false, "Show what would be copied without actually copying")
+	overwrite := flag.Bool("overwrite", false, "Overwrite existing secrets (disabled by default)")
+	parallel := flag.Int("parallel", 5, "Number of parallel operations")
+	verbose := flag.Bool("v", false, "Enable verbose output")
 
-	// Флаги для source Vault
-	sourceAddr := flag.String("src-addr", "", "URL Vault-источника (по-умолчанию будет использована переменная окружения VAULT_SOURCE_ADDR)")
-	sourceToken := flag.String("src-token", "", "Токен для Vault-источника (по-умолчанию будет использована переменная окружения VAULT_SOURCE_TOKEN)")
+	// Source Vault flags
+	sourceAddr := flag.String("src-addr", "", "Source Vault URL (environment variable VAULT_SOURCE_ADDR will be used by default)")
+	sourceToken := flag.String("src-token", "", "Source Vault token (environment variable VAULT_SOURCE_TOKEN will be used by default)")
 
-	// Флаги для destination Vault
-	destAddr := flag.String("dst-addr", "", "URL Vault-приемника (по-умолчанию будет использована переменная окружения VAULT_DEST_ADDR)")
-	destToken := flag.String("dst-token", "", "Токен для Vault-приемника (по-умолчанию будет использована переменная окруженияи VAULT_DEST_TOKEN)")
+	// Destination Vault flags
+	destAddr := flag.String("dst-addr", "", "Destination Vault URL (environment variable VAULT_DEST_ADDR will be used by default)")
+	destToken := flag.String("dst-token", "", "Destination Vault token (environment variable VAULT_DEST_TOKEN will be used by default)")
 
 	flag.Parse()
 
-	// Валидация аргументов
+	// Validate arguments
 	if *srcPath == "" || *dstPath == "" {
 		message := `
-пример использования 
+example usage:
 
 export VAULT_SOURCE_TOKEN="source_token"
 export VAULT_SOURCE_ADDR="https://vault1:8200"
 
 ./vault-sync --src-path="secret/data/apps/production" --dst-path="secret/data/backup/production" --recursive --parallel=10`
-		fmt.Println("Требуются как минимум 2 параметра: --src-path и --dst-path, в этом случае секреты будут скопированы внутри VAULT_SOURCE_ADDR")
+		fmt.Println("At least 2 parameters are required: --src-path and --dst-path, in this case secrets will be copied within VAULT_SOURCE_ADDR")
 		fmt.Println(message)
-		fmt.Println("введите --help для получения справки")
+		fmt.Println("enter --help for help")
 		os.Exit(1)
 	}
 
-	// Создание конфигурации
+	// Create configuration
 	cfg, err := config.NewConfig(
 		*srcPath,
 		*dstPath,
@@ -62,38 +62,38 @@ export VAULT_SOURCE_ADDR="https://vault1:8200"
 		*destToken,
 	)
 	if err != nil {
-		log.Fatalf("Ошибка конфигурации: %v", err)
+		log.Fatalf("Configuration error: %v", err)
 	}
 
-	// Инициализация клиентов Vault
+	// Initialize Vault clients
 	sourceClient, err := vault.NewClient(cfg.SourceAddr, cfg.SourceToken)
 	if err != nil {
-		log.Fatalf("Ошибка создания клиента Vault-источника: %v", err)
+		log.Fatalf("Error creating source Vault client: %v", err)
 	}
 
 	destClient, err := vault.NewClient(cfg.DestAddr, cfg.DestToken)
 	if err != nil {
-		log.Fatalf("Ошибка создания клиента Vault-приемника: %v", err)
+		log.Fatalf("Error creating destination Vault client: %v", err)
 	}
 
-	// Создание менеджера синхронизации
+	// Create synchronization manager
 	syncManager := sync.NewManager(sourceClient, destClient, cfg)
 
-	// Выполнение синхронизации
+	// Perform synchronization
 	ctx := context.Background()
 	stats, err := syncManager.Sync(ctx)
 	if err != nil {
-		log.Fatalf("Ошибка синхронизации: %v", err)
+		log.Fatalf("Synchronization error: %v", err)
 	}
 
-	// Вывод статистики
-	fmt.Printf("\nСинхронизация завершена:\n")
-	fmt.Printf("  Прочитано секретов: %d\n", stats.SecretsRead)
-	fmt.Printf("  Записано секретов: %d\n", stats.SecretsWritten)
-	fmt.Printf("  Пропущено (существуют): %d\n", stats.SecretsSkipped)
-	fmt.Printf("  Ошибок: %d\n", stats.Errors)
+	// Output statistics
+	fmt.Printf("\nSynchronization completed:\n")
+	fmt.Printf("  Secrets read: %d\n", stats.SecretsRead)
+	fmt.Printf("  Secrets written: %d\n", stats.SecretsWritten)
+	fmt.Printf("  Skipped (already exist): %d\n", stats.SecretsSkipped)
+	fmt.Printf("  Errors: %d\n", stats.Errors)
 
 	if *dryRun {
-		fmt.Println("\nРежим dry-run - ничего не было записано")
+		fmt.Println("\nDry-run mode - nothing was written")
 	}
 }

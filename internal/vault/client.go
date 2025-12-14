@@ -14,7 +14,7 @@ type Client struct {
 	config *ClientConfig
 }
 
-// Убедимся, что Client реализует ClientInterface
+// Ensure that Client implements ClientInterface
 var _ ClientInterface = (*Client)(nil)
 
 // ClientConfig holds the configuration for a Vault client.

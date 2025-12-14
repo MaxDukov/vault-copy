@@ -5,7 +5,7 @@ import (
 	"vault-copy/internal/logger"
 )
 
-// Reader интерфейс для чтения секретов
+// Reader interface for reading secrets
 type Reader interface {
 	ReadSecret(path string, logger *logger.Logger) (*Secret, error)
 	IsDirectory(path string, logger *logger.Logger) (bool, error)
@@ -13,14 +13,14 @@ type Reader interface {
 	GetAllSecrets(ctx context.Context, rootPath string, logger *logger.Logger) (<-chan *Secret, <-chan error)
 }
 
-// Writer интерфейс для записи секретов
+// Writer interface for writing secrets
 type Writer interface {
 	WriteSecret(path string, data map[string]interface{}, logger *logger.Logger) error
 	SecretExists(path string, logger *logger.Logger) (bool, error)
 	BatchWriteSecrets(ctx context.Context, secrets <-chan *Secret, basePath string, logger *logger.Logger) <-chan error
 }
 
-// ClientInterface объединяет Reader и Writer
+// ClientInterface combines Reader and Writer
 type ClientInterface interface {
 	Reader
 	Writer
