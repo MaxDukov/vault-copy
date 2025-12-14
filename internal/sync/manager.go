@@ -260,11 +260,12 @@ func (m *SyncManager) transformPath(sourcePath, baseDestPath string) string {
 		relativePath = relativePath[1:]
 	}
 
-	// Если destination path заканчивается на /data/, это значит что он указывает на конкретный движок
-	if strings.Contains(baseDestPath, "/data/") {
+	// Просто объединяем baseDestPath и relativePath
+	if relativePath != "" {
+		// Убираем завершающий слеш у baseDestPath если есть
+		baseDestPath = strings.TrimSuffix(baseDestPath, "/")
 		return baseDestPath + "/" + relativePath
 	}
 
-	// Иначе предполагаем что это путь внутри движка secret
-	return "secret/data/" + baseDestPath + "/" + relativePath
+	return baseDestPath
 }
