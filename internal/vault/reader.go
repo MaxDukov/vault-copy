@@ -8,28 +8,34 @@ import (
 	"vault-copy/internal/logger"
 )
 
+// Secret represents a Vault secret with its path, data, and metadata.
 type Secret struct {
-	Path     string
-	Data     map[string]interface{}
+	// Path is the full path to the secret in Vault
+	Path string
+	// Data contains the secret's key-value pairs
+	Data map[string]interface{}
+	// Metadata contains the secret's metadata
 	Metadata map[string]interface{}
 }
 
+// ReadSecret reads a secret from Vault at the specified path.
+// It handles both KV v1 and KV v2 secrets and returns the secret data and metadata.
 func (c *Client) ReadSecret(path string, logger *logger.Logger) (*Secret, error) {
-	logger.Verbose("Чтение секрета из Vault: %s", path)
+	logger.Verbose("Reading secret from Vault: %s", path)
 	secret, err := c.client.Logical().Read(path)
 	if err != nil {
-		logger.Error("Ошибка чтения секрета %s: %v", path, err)
+		logger.Error("Error reading secret %s: %v", path, err)
 		return nil, err
 	}
 
 	if secret == nil {
-		return nil, fmt.Errorf("секрет не найден: %s", path)
+		return nil, fmt.Errorf("secret not found: %s", path)
 	}
 
-	// Для KV v2 данные находятся в secret.Data["data"]
+	// For KV v2, data is in secret.Data["data"]
 	data, ok := secret.Data["data"].(map[string]interface{})
 	if !ok {
-		data = secret.Data // Для KV v1 или других движков
+		data = secret.Data // For KV v1 or other engines
 	}
 
 	metadata, _ := secret.Data["metadata"].(map[string]interface{})
@@ -41,56 +47,60 @@ func (c *Client) ReadSecret(path string, logger *logger.Logger) (*Secret, error)
 	}, nil
 }
 
+// IsDirectory checks if the given path is a directory in Vault.
+// It attempts to list the path and returns true if listing is successful.
 func (c *Client) IsDirectory(path string, logger *logger.Logger) (bool, error) {
-	logger.Verbose("Проверка, является ли путь директорией: %s", path)
-	// Пробуем получить листинг
+	logger.Verbose("Checking if path is a directory: %s", path)
+	// Try to get listing
 	listPath := strings.Replace(path, "/data/", "/metadata/", 1)
 	if !strings.Contains(listPath, "/metadata/") {
 		listPath = path + "/"
 	}
 
-	logger.Verbose("Получение списка из: %s", listPath)
+	logger.Verbose("Getting list from: %s", listPath)
 	secret, err := c.client.Logical().List(listPath)
 	if err != nil {
-		// Если ошибка 405 или 404, это не папка
+		// If error is 405 or 404, it's not a directory
 		if strings.Contains(err.Error(), "405") ||
 			strings.Contains(err.Error(), "404") ||
 			strings.Contains(err.Error(), "permission denied") {
-			logger.Verbose("Путь %s не является директорией (ошибка: %v)", path, err)
+			logger.Verbose("Path %s is not a directory (error: %v)", path, err)
 			return false, nil
 		}
-		logger.Error("Ошибка проверки пути %s: %v", path, err)
+		logger.Error("Error checking path %s: %v", path, err)
 		return false, err
 	}
 
 	isDir := secret != nil && secret.Data != nil
-	logger.Verbose("Путь %s является директорией: %t", path, isDir)
+	logger.Verbose("Path %s is a directory: %t", path, isDir)
 	return isDir, nil
 }
 
+// ListSecrets lists all secrets at the given path in Vault.
+// It returns a slice of secret names/paths relative to the given path.
 func (c *Client) ListSecrets(path string, logger *logger.Logger) ([]string, error) {
-	logger.Verbose("Получение списка секретов из: %s", path)
-	// Для KV v2 используем metadata endpoint для листинга
+	logger.Verbose("Getting list of secrets from: %s", path)
+	// For KV v2, use metadata endpoint for listing
 	listPath := strings.Replace(path, "/data/", "/metadata/", 1)
 	if !strings.Contains(listPath, "/metadata/") {
 		listPath = path + "/"
 	}
 
-	logger.Verbose("Запрос списка из: %s", listPath)
+	logger.Verbose("Requesting list from: %s", listPath)
 	secret, err := c.client.Logical().List(listPath)
 	if err != nil {
-		logger.Error("Ошибка получения списка секретов из %s: %v", path, err)
+		logger.Error("Error getting list of secrets from %s: %v", path, err)
 		return nil, err
 	}
 
 	if secret == nil || secret.Data == nil {
-		logger.Verbose("Нет секретов в: %s", path)
+		logger.Verbose("No secrets in: %s", path)
 		return []string{}, nil
 	}
 
 	keys, ok := secret.Data["keys"].([]interface{})
 	if !ok {
-		logger.Verbose("Нет ключей в ответе для: %s", path)
+		logger.Verbose("No keys in response for: %s", path)
 		return []string{}, nil
 	}
 
@@ -101,10 +111,13 @@ func (c *Client) ListSecrets(path string, logger *logger.Logger) ([]string, erro
 		}
 	}
 
-	logger.Verbose("Найдено %d секретов в: %s", len(result), path)
+	logger.Verbose("Found %d secrets in: %s", len(result), path)
 	return result, nil
 }
 
+// GetAllSecrets recursively retrieves all secrets under the given root path.
+// It returns two channels: one for secrets and one for errors.
+// The caller must read from both channels until they are closed.
 func (c *Client) GetAllSecrets(ctx context.Context, rootPath string, logger *logger.Logger) (<-chan *Secret, <-chan error) {
 	secretsChan := make(chan *Secret, 100)
 	errChan := make(chan error, 1)
@@ -119,6 +132,8 @@ func (c *Client) GetAllSecrets(ctx context.Context, rootPath string, logger *log
 	return secretsChan, errChan
 }
 
+// walkSecrets recursively walks the Vault hierarchy and sends secrets to the secrets channel.
+// It sends errors to the error channel. Both channels are closed when the walk is complete.
 func (c *Client) walkSecrets(ctx context.Context, path string, secretsChan chan<- *Secret, errChan chan<- error, logger *logger.Logger) {
 	select {
 	case <-ctx.Done():
@@ -164,6 +179,8 @@ func (c *Client) walkSecrets(ctx context.Context, path string, secretsChan chan<
 	}
 }
 
+// buildPath constructs a full path from a base path and an item name.
+// It ensures proper path separators are used.
 func buildPath(base, item string) string {
 	if strings.HasSuffix(base, "/") {
 		return base + item

@@ -7,24 +7,36 @@ import (
 	"strings"
 )
 
+// Config holds the configuration for the vault-copy application.
 type Config struct {
-	SourcePath      string
+	// SourcePath is the path to the secret or directory in the source Vault
+	SourcePath string
+	// DestinationPath is the path where secrets will be copied in the destination Vault
 	DestinationPath string
-	Recursive       bool
-	DryRun          bool
-	Overwrite       bool
+	// Recursive indicates whether to copy directories recursively
+	Recursive bool
+	// DryRun indicates whether to perform a dry run without actually copying secrets
+	DryRun bool
+	// Overwrite indicates whether to overwrite existing secrets in the destination
+	Overwrite bool
+	// ParallelWorkers is the number of parallel workers for copying secrets
 	ParallelWorkers int
-	Verbose         bool
+	// Verbose indicates whether to enable verbose logging
+	Verbose bool
 
-	// Source Vault
-	SourceAddr  string
+	// SourceAddr is the address of the source Vault server
+	SourceAddr string
+	// SourceToken is the authentication token for the source Vault
 	SourceToken string
 
-	// Destination Vault
-	DestAddr  string
+	// DestAddr is the address of the destination Vault server
+	DestAddr string
+	// DestToken is the authentication token for the destination Vault
 	DestToken string
 }
 
+// NewConfig creates a new Config instance with the provided parameters.
+// It handles environment variable fallbacks for Vault addresses and tokens.
 func NewConfig(
 	sourcePath, destinationPath string,
 	recursive, dryRun, overwrite, verbose bool,
@@ -42,7 +54,7 @@ func NewConfig(
 		ParallelWorkers: parallelWorkers,
 		Verbose:         verbose,
 	}
-	// Получение конфигурации  Vault истоника
+	// Get source Vault configuration
 	if sourceAddr == "" {
 		sourceAddr = os.Getenv("VAULT_SOURCE_ADDR")
 	}
@@ -61,17 +73,17 @@ func NewConfig(
 		sourceToken = os.Getenv("VAULT_TOKEN")
 	}
 	if sourceToken == "" {
-		return nil, errors.New("токен Vault-источника не найден. Установите VAULT_SOURCE_TOKEN или VAULT_TOKEN")
+		return nil, errors.New("source Vault token not found. Set VAULT_SOURCE_TOKEN or VAULT_TOKEN")
 	}
 	cfg.SourceToken = sourceToken
 
-	// Получение конфигурации Vault-приемника
+	// Get destination Vault configuration
 	if destAddr == "" {
 		destAddr = os.Getenv("VAULT_DEST_ADDR")
 	}
 	if destAddr == "" {
 		destAddr = os.Getenv("VAULT_ADDR")
-		log.Println("VAULT_DEST_ADDR не найден, используется VAULT_ADDR, копирование внутри одного Vault")
+		log.Println("VAULT_DEST_ADDR not found, using VAULT_ADDR, copying within the same Vault")
 	}
 	cfg.DestAddr = destAddr
 
@@ -82,11 +94,11 @@ func NewConfig(
 		destToken = os.Getenv("VAULT_TOKEN")
 	}
 	if destToken == "" {
-		return nil, errors.New("токен Vault-примника не найден. Установите VAULT_DEST_TOKEN или VAULT_TOKEN")
+		return nil, errors.New("destination Vault token not found. Set VAULT_DEST_TOKEN or VAULT_TOKEN")
 	}
 	cfg.DestToken = destToken
 
-	// Валидация
+	// Validate configuration
 	if err := cfg.Validate(); err != nil {
 		return nil, err
 	}
@@ -94,33 +106,36 @@ func NewConfig(
 	return cfg, nil
 }
 
+// normalizePath normalizes Vault secret paths by ensuring they don't get incorrectly modified.
+// It preserves paths that already contain /data/ or don't have KV engine prefixes.
 func normalizePath(path string) string {
-	// Не изменяем пути, которые уже содержат /data/ или не содержат движка KV
+	// Don't modify paths that already contain /data/ or don't have KV engine prefixes
 	if strings.Contains(path, "/data/") || (!strings.HasPrefix(path, "secret/") && !strings.HasPrefix(path, "kv/")) {
 		return path
 	}
 
-	// Для путей с префиксом secret/ или kv/ проверяем, содержит ли путь уже data
+	// For paths with secret/ or kv/ prefixes, check if they already contain data
 	if strings.HasPrefix(path, "secret/") || strings.HasPrefix(path, "kv/") {
-		// Если путь не содержит /data/, то не добавляем его автоматически
-		// Позволяем Vault API самому определить формат
+		// If path doesn't contain /data/, don't add it automatically
+		// Let Vault API determine the format
 		return path
 	}
 
 	return path
 }
 
+// Validate checks that the configuration is valid.
 func (c *Config) Validate() error {
 	if c.SourcePath == "" {
-		return errors.New("путь источника не может быть пустым")
+		return errors.New("source path cannot be empty")
 	}
 
 	if c.DestinationPath == "" {
-		return errors.New("путь назначения не может быть пустым")
+		return errors.New("destination path cannot be empty")
 	}
 
 	if c.ParallelWorkers < 1 {
-		return errors.New("количество параллельных работников должно быть >= 1")
+		return errors.New("parallel workers must be >= 1")
 	}
 
 	return nil
