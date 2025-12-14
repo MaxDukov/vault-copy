@@ -14,6 +14,7 @@ import (
 
 func main() {
 	// Parse command line arguments
+	configFile := flag.String("config", "config.yaml", "Path to config file")
 	srcPath := flag.String("src-path", "", "Source secret or directory path (required)")
 	dstPath := flag.String("dst-path", "", "Destination path in target Vault (required)")
 	recursive := flag.Bool("recursive", false, "Recursively copy all secrets from folder (disabled by default)")
@@ -60,6 +61,7 @@ export VAULT_SOURCE_ADDR="https://vault1:8200"
 		*sourceToken,
 		*destAddr,
 		*destToken,
+		*configFile,
 	)
 	if err != nil {
 		log.Fatalf("Configuration error: %v", err)

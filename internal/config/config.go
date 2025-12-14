@@ -5,6 +5,8 @@ import (
 	"log"
 	"os"
 	"strings"
+
+	"gopkg.in/yaml.v3"
 )
 
 // Config holds the configuration for the vault-copy application.
@@ -35,15 +37,62 @@ type Config struct {
 	DestToken string
 }
 
+// FileConfig represents the structure of the YAML config file
+type FileConfig struct {
+	Source struct {
+		Address string `yaml:"address"`
+		Token   string `yaml:"token"`
+	} `yaml:"source"`
+	Destination struct {
+		Address string `yaml:"address"`
+		Token   string `yaml:"token"`
+	} `yaml:"destination"`
+	Settings struct {
+		Recursive bool `yaml:"recursive"`
+		DryRun    bool `yaml:"dry_run"`
+		Overwrite bool `yaml:"overwrite"`
+		Parallel  int  `yaml:"parallel"`
+		Verbose   bool `yaml:"verbose"`
+	} `yaml:"settings"`
+}
+
+// LoadConfigFromFile loads configuration from a YAML file
+func LoadConfigFromFile(filename string) (*FileConfig, error) {
+	// If config file doesn't exist, return empty config
+	if _, err := os.Stat(filename); os.IsNotExist(err) {
+		return &FileConfig{}, nil
+	}
+
+	data, err := os.ReadFile(filename)
+	if err != nil {
+		return nil, err
+	}
+
+	var fileConfig FileConfig
+	if err := yaml.Unmarshal(data, &fileConfig); err != nil {
+		return nil, err
+	}
+
+	return &fileConfig, nil
+}
+
 // NewConfig creates a new Config instance with the provided parameters.
 // It handles environment variable fallbacks for Vault addresses and tokens.
+// Priority order: function parameters > environment variables > config file > defaults
 func NewConfig(
 	sourcePath, destinationPath string,
 	recursive, dryRun, overwrite, verbose bool,
 	parallelWorkers int,
 	sourceAddr, sourceToken,
 	destAddr, destToken string,
+	configFile string,
 ) (*Config, error) {
+	// Load config file
+	fileConfig, err := LoadConfigFromFile(configFile)
+	if err != nil {
+		log.Printf("Warning: could not load config file: %v", err)
+		fileConfig = &FileConfig{}
+	}
 
 	cfg := &Config{
 		SourcePath:      normalizePath(sourcePath),
@@ -54,9 +103,19 @@ func NewConfig(
 		ParallelWorkers: parallelWorkers,
 		Verbose:         verbose,
 	}
+
+	// Validate configuration early to catch path errors before token validation
+	if err := cfg.Validate(); err != nil {
+		return nil, err
+	}
+
 	// Get source Vault configuration
+	// Priority: function parameter > environment variable > config file > default
 	if sourceAddr == "" {
 		sourceAddr = os.Getenv("VAULT_SOURCE_ADDR")
+	}
+	if sourceAddr == "" {
+		sourceAddr = fileConfig.Source.Address
 	}
 	if sourceAddr == "" {
 		sourceAddr = os.Getenv("VAULT_ADDR")
@@ -70,6 +129,9 @@ func NewConfig(
 		sourceToken = os.Getenv("VAULT_SOURCE_TOKEN")
 	}
 	if sourceToken == "" {
+		sourceToken = fileConfig.Source.Token
+	}
+	if sourceToken == "" {
 		sourceToken = os.Getenv("VAULT_TOKEN")
 	}
 	if sourceToken == "" {
@@ -78,8 +140,12 @@ func NewConfig(
 	cfg.SourceToken = sourceToken
 
 	// Get destination Vault configuration
+	// Priority: function parameter > environment variable > config file > default
 	if destAddr == "" {
 		destAddr = os.Getenv("VAULT_DEST_ADDR")
+	}
+	if destAddr == "" {
+		destAddr = fileConfig.Destination.Address
 	}
 	if destAddr == "" {
 		destAddr = os.Getenv("VAULT_ADDR")
@@ -91,6 +157,9 @@ func NewConfig(
 		destToken = os.Getenv("VAULT_DEST_TOKEN")
 	}
 	if destToken == "" {
+		destToken = fileConfig.Destination.Token
+	}
+	if destToken == "" {
 		destToken = os.Getenv("VAULT_TOKEN")
 	}
 	if destToken == "" {
@@ -98,9 +167,38 @@ func NewConfig(
 	}
 	cfg.DestToken = destToken
 
-	// Validate configuration
-	if err := cfg.Validate(); err != nil {
-		return nil, err
+	// Apply default settings from config file if not set by command line
+	// Command line has explicit values when flags are provided
+	// We need to check if the values are at their default state
+	if !recursive {
+		cfg.Recursive = fileConfig.Settings.Recursive
+	} else {
+		cfg.Recursive = recursive
+	}
+
+	if !dryRun {
+		cfg.DryRun = fileConfig.Settings.DryRun
+	} else {
+		cfg.DryRun = dryRun
+	}
+
+	if !overwrite {
+		cfg.Overwrite = fileConfig.Settings.Overwrite
+	} else {
+		cfg.Overwrite = overwrite
+	}
+
+	if parallelWorkers == 5 && fileConfig.Settings.Parallel != 0 {
+		// Only use config file value if command line wasn't explicitly set to default
+		cfg.ParallelWorkers = fileConfig.Settings.Parallel
+	} else {
+		cfg.ParallelWorkers = parallelWorkers
+	}
+
+	if !verbose {
+		cfg.Verbose = fileConfig.Settings.Verbose
+	} else {
+		cfg.Verbose = verbose
 	}
 
 	return cfg, nil
@@ -110,15 +208,28 @@ func NewConfig(
 // It preserves paths that already contain /data/ or don't have KV engine prefixes.
 func normalizePath(path string) string {
 	// Don't modify paths that already contain /data/ or don't have KV engine prefixes
-	if strings.Contains(path, "/data/") || (!strings.HasPrefix(path, "secret/") && !strings.HasPrefix(path, "kv/")) {
+	if strings.Contains(path, "/data/") || (!strings.HasPrefix(path, "secret") && !strings.HasPrefix(path, "kv")) {
 		return path
 	}
 
-	// For paths with secret/ or kv/ prefixes, check if they already contain data
-	if strings.HasPrefix(path, "secret/") || strings.HasPrefix(path, "kv/") {
-		// If path doesn't contain /data/, don't add it automatically
-		// Let Vault API determine the format
-		return path
+	// Handle exact matches for root paths
+	if path == "secret" {
+		return "secret/data"
+	}
+
+	if path == "kv" {
+		return "kv/data"
+	}
+
+	// For paths with secret/ or kv/ prefixes, add /data/ if it's not already there
+	if strings.HasPrefix(path, "secret/") && !strings.HasPrefix(path, "secret/data/") {
+		// Add /data/ after secret/
+		return "secret/data" + strings.TrimPrefix(path, "secret")
+	}
+
+	if strings.HasPrefix(path, "kv/") && !strings.HasPrefix(path, "kv/data/") {
+		// Add /data/ after kv/
+		return "kv/data" + strings.TrimPrefix(path, "kv")
 	}
 
 	return path
@@ -132,6 +243,24 @@ func (c *Config) Validate() error {
 
 	if c.DestinationPath == "" {
 		return errors.New("destination path cannot be empty")
+	}
+
+	// Check that destination path doesn't contain invalid characters
+	// Vault paths should not contain characters like .. or //
+	if strings.Contains(c.DestinationPath, "..") {
+		return errors.New("destination path cannot contain ..")
+	}
+
+	if strings.Contains(c.DestinationPath, "//") {
+		return errors.New("destination path cannot contain //")
+	}
+
+	// Check that destination path only contains valid characters
+	// Valid characters: English letters, digits, hyphens, underscores, and slashes
+	for _, r := range c.DestinationPath {
+		if !((r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') || (r >= '0' && r <= '9') || r == '-' || r == '_' || r == '/') {
+			return errors.New("destination path can only contain English letters, digits, hyphens, underscores, and slashes")
+		}
 	}
 
 	if c.ParallelWorkers < 1 {

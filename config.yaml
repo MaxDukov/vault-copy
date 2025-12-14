@@ -1,0 +1,30 @@
+# Vault Copy Configuration File
+# This file contains default values for vault-copy command line tool
+# Command line arguments have highest priority, then environment variables, then this config file
+
+# Source Vault configuration
+source:
+  # Source Vault address (can be overridden by VAULT_SOURCE_ADDR or --src-addr)
+  address: ""
+  # Source Vault token (can be overridden by VAULT_SOURCE_TOKEN or --src-token)
+  token: ""
+
+# Destination Vault configuration
+destination:
+  # Destination Vault address (can be overridden by VAULT_DEST_ADDR or --dst-addr)
+  address: ""
+  # Destination Vault token (can be overridden by VAULT_DEST_TOKEN or --dst-token)
+  token: ""
+
+# General settings
+settings:
+  # Recursively copy all secrets from folder (can be overridden by --recursive)
+  recursive: false
+  # Show what would be copied without actually copying (can be overridden by --dry-run)
+  dry_run: false
+  # Overwrite existing secrets (can be overridden by --overwrite)
+  overwrite: false
+  # Number of parallel operations (can be overridden by --parallel)
+  parallel: 5
+  # Enable verbose output (can be overridden by --v)
+  verbose: false

@@ -77,6 +77,30 @@ export VAULT_DEST_ADDR="https://vault2:8200"
 | `--dst-addr` | Destination Vault URL | No | VAULT_DEST_ADDR or VAULT_ADDR |
 | `--dst-token` | Token for destination Vault | No | VAULT_DEST_TOKEN or VAULT_TOKEN |
 
+## Configuration File
+
+You can also specify configuration options in a `config.yaml` file:
+
+```yaml
+source:
+  address: "https://vault-source:8200"
+  token: "source-token"
+destination:
+  address: "https://vault-dest:8200"
+  token: "dest-token"
+settings:
+  recursive: true
+  dry_run: false
+  overwrite: false
+  parallel: 5
+  verbose: false
+```
+
+The configuration priority is:
+1. Command line arguments (highest priority)
+2. Environment variables
+3. Configuration file (lowest priority)
+
 ## License
 
 This project is licensed under the AGNU License - see the [LICENSE](LICENSE) file for details.

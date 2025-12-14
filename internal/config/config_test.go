@@ -145,6 +145,7 @@ func TestNewConfig(t *testing.T) {
 				sourceToken,
 				destAddr,
 				destToken,
+				"config.yaml", // configFile
 			)
 
 			if tt.wantErr {
@@ -192,6 +193,208 @@ func TestNewConfig(t *testing.T) {
 				t.Errorf("DestToken = %v, want %v", cfg.DestToken, expectedDestToken)
 			}
 		})
+	}
+}
+
+func TestNewConfigWithConfigFile(t *testing.T) {
+	// Save original environment variables
+	originalEnv := map[string]string{
+		"VAULT_SOURCE_ADDR":  os.Getenv("VAULT_SOURCE_ADDR"),
+		"VAULT_SOURCE_TOKEN": os.Getenv("VAULT_SOURCE_TOKEN"),
+		"VAULT_DEST_ADDR":    os.Getenv("VAULT_DEST_ADDR"),
+		"VAULT_DEST_TOKEN":   os.Getenv("VAULT_DEST_TOKEN"),
+		"VAULT_ADDR":         os.Getenv("VAULT_ADDR"),
+		"VAULT_TOKEN":        os.Getenv("VAULT_TOKEN"),
+	}
+	defer func() {
+		for k, v := range originalEnv {
+			if v != "" {
+				os.Setenv(k, v)
+			} else {
+				os.Unsetenv(k)
+			}
+		}
+	}()
+
+	// Clear environment variables
+	for k := range originalEnv {
+		os.Unsetenv(k)
+	}
+
+	// Create a temporary config file for testing
+	configContent := `
+source:
+  address: "https://vault-source:8200"
+  token: "source-file-token"
+destination:
+  address: "https://vault-dest:8200"
+  token: "dest-file-token"
+settings:
+  recursive: true
+  dry_run: true
+  overwrite: false
+  parallel: 10
+  verbose: true
+`
+
+	err := os.WriteFile("test-config.yaml", []byte(configContent), 0644)
+	if err != nil {
+		t.Fatalf("Failed to create test config file: %v", err)
+	}
+	defer os.Remove("test-config.yaml")
+
+	cfg, err := NewConfig(
+		"secret/data/app",
+		"secret/data/backup",
+		false,              // recursive (will be overridden by config file)
+		false,              // dryRun (will be overridden by config file)
+		false,              // overwrite (will be overridden by config file)
+		false,              // verbose (will be overridden by config file)
+		5,                  // parallelWorkers (will be overridden by config file)
+		"",                 // sourceAddr (will be overridden by config file)
+		"",                 // sourceToken (will be overridden by config file)
+		"",                 // destAddr (will be overridden by config file)
+		"",                 // destToken (will be overridden by config file)
+		"test-config.yaml", // configFile
+	)
+
+	if err != nil {
+		t.Errorf("NewConfig() unexpected error = %v", err)
+		return
+	}
+
+	if cfg == nil {
+		t.Errorf("NewConfig() returned nil config")
+		return
+	}
+
+	// Check that values from config file are used
+	if cfg.SourceAddr != "https://vault-source:8200" {
+		t.Errorf("SourceAddr = %v, want %v", cfg.SourceAddr, "https://vault-source:8200")
+	}
+
+	if cfg.SourceToken != "source-file-token" {
+		t.Errorf("SourceToken = %v, want %v", cfg.SourceToken, "source-file-token")
+	}
+
+	if cfg.DestAddr != "https://vault-dest:8200" {
+		t.Errorf("DestAddr = %v, want %v", cfg.DestAddr, "https://vault-dest:8200")
+	}
+
+	if cfg.DestToken != "dest-file-token" {
+		t.Errorf("DestToken = %v, want %v", cfg.DestToken, "dest-file-token")
+	}
+
+	// Check that settings from config file are used
+	if !cfg.Recursive {
+		t.Errorf("Recursive = %v, want %v", cfg.Recursive, true)
+	}
+
+	if !cfg.DryRun {
+		t.Errorf("DryRun = %v, want %v", cfg.DryRun, true)
+	}
+
+	if cfg.Overwrite {
+		t.Errorf("Overwrite = %v, want %v", cfg.Overwrite, false)
+	}
+
+	if cfg.ParallelWorkers != 10 {
+		t.Errorf("ParallelWorkers = %v, want %v", cfg.ParallelWorkers, 10)
+	}
+
+	if !cfg.Verbose {
+		t.Errorf("Verbose = %v, want %v", cfg.Verbose, true)
+	}
+}
+
+func TestNewConfigPriority(t *testing.T) {
+	// Save original environment variables
+	originalEnv := map[string]string{
+		"VAULT_SOURCE_ADDR":  os.Getenv("VAULT_SOURCE_ADDR"),
+		"VAULT_SOURCE_TOKEN": os.Getenv("VAULT_SOURCE_TOKEN"),
+		"VAULT_DEST_ADDR":    os.Getenv("VAULT_DEST_ADDR"),
+		"VAULT_DEST_TOKEN":   os.Getenv("VAULT_DEST_TOKEN"),
+		"VAULT_ADDR":         os.Getenv("VAULT_ADDR"),
+		"VAULT_TOKEN":        os.Getenv("VAULT_TOKEN"),
+	}
+	defer func() {
+		for k, v := range originalEnv {
+			if v != "" {
+				os.Setenv(k, v)
+			} else {
+				os.Unsetenv(k)
+			}
+		}
+	}()
+
+	// Clear environment variables
+	for k := range originalEnv {
+		os.Unsetenv(k)
+	}
+
+	// Set environment variables
+	os.Setenv("VAULT_SOURCE_ADDR", "https://vault-env:8200")
+	os.Setenv("VAULT_SOURCE_TOKEN", "source-env-token")
+	os.Setenv("VAULT_DEST_ADDR", "https://vault-env:8200")
+	os.Setenv("VAULT_DEST_TOKEN", "dest-env-token")
+
+	// Create a temporary config file for testing
+	configContent := `
+source:
+  address: "https://vault-file:8200"
+  token: "source-file-token"
+destination:
+  address: "https://vault-file:8200"
+  token: "dest-file-token"
+`
+
+	err := os.WriteFile("priority-test-config.yaml", []byte(configContent), 0644)
+	if err != nil {
+		t.Fatalf("Failed to create test config file: %v", err)
+	}
+	defer os.Remove("priority-test-config.yaml")
+
+	// Test that environment variables have higher priority than config file
+	cfg, err := NewConfig(
+		"secret/data/app",
+		"secret/data/backup",
+		false,                       // recursive
+		false,                       // dryRun
+		false,                       // overwrite
+		false,                       // verbose
+		5,                           // parallelWorkers
+		"",                          // sourceAddr (will be taken from environment)
+		"",                          // sourceToken (will be taken from environment)
+		"",                          // destAddr (will be taken from environment)
+		"",                          // destToken (will be taken from environment)
+		"priority-test-config.yaml", // configFile
+	)
+
+	if err != nil {
+		t.Errorf("NewConfig() unexpected error = %v", err)
+		return
+	}
+
+	if cfg == nil {
+		t.Errorf("NewConfig() returned nil config")
+		return
+	}
+
+	// Check that environment variables have higher priority
+	if cfg.SourceAddr != "https://vault-env:8200" {
+		t.Errorf("SourceAddr = %v, want %v", cfg.SourceAddr, "https://vault-env:8200")
+	}
+
+	if cfg.SourceToken != "source-env-token" {
+		t.Errorf("SourceToken = %v, want %v", cfg.SourceToken, "source-env-token")
+	}
+
+	if cfg.DestAddr != "https://vault-env:8200" {
+		t.Errorf("DestAddr = %v, want %v", cfg.DestAddr, "https://vault-env:8200")
+	}
+
+	if cfg.DestToken != "dest-env-token" {
+		t.Errorf("DestToken = %v, want %v", cfg.DestToken, "dest-env-token")
 	}
 }
 
@@ -286,6 +489,51 @@ func TestConfigValidate(t *testing.T) {
 				SourcePath:      "secret/data/app",
 				DestinationPath: "secret/data/backup",
 				ParallelWorkers: -1,
+			},
+			wantErr: true,
+		},
+		{
+			name: "destination path with ..",
+			config: &Config{
+				SourcePath:      "secret/data/app",
+				DestinationPath: "secret/data/../backup",
+				ParallelWorkers: 5,
+			},
+			wantErr: true,
+		},
+		{
+			name: "destination path with //",
+			config: &Config{
+				SourcePath:      "secret/data/app",
+				DestinationPath: "secret/data//backup",
+				ParallelWorkers: 5,
+			},
+			wantErr: true,
+		},
+		{
+			name: "destination path with valid characters",
+			config: &Config{
+				SourcePath:      "secret/data/app",
+				DestinationPath: "secret/data/backup_1-test",
+				ParallelWorkers: 5,
+			},
+			wantErr: false,
+		},
+		{
+			name: "destination path with invalid characters - russian letters",
+			config: &Config{
+				SourcePath:      "secret/data/app",
+				DestinationPath: "secret/data/бэкап",
+				ParallelWorkers: 5,
+			},
+			wantErr: true,
+		},
+		{
+			name: "destination path with invalid characters - special symbols",
+			config: &Config{
+				SourcePath:      "secret/data/app",
+				DestinationPath: "secret/data/backup@#$",
+				ParallelWorkers: 5,
 			},
 			wantErr: true,
 		},
