@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"vault-copy/internal/config"
+	"vault-copy/internal/logger"
 	"vault-copy/mocks"
 )
 
@@ -347,6 +348,7 @@ func TestTransformPathMethod(t *testing.T) {
 		config: &config.Config{
 			SourcePath: "secret/data/source",
 		},
+		logger: logger.NewLogger(&config.Config{}),
 	}
 
 	tests := []struct {
@@ -386,9 +388,9 @@ func TestTransformPathMethod(t *testing.T) {
 			manager.config.SourcePath = "secret/data/source"
 			manager.config.DestinationPath = tt.destPath
 
-			got := manager.transformPath(tt.sourcePath, tt.destPath)
+			got := manager.TransformPath(tt.sourcePath, tt.destPath)
 			if got != tt.want {
-				t.Errorf("transformPath() = %v, want %v", got, tt.want)
+				t.Errorf("TransformPath() = %v, want %v", got, tt.want)
 			}
 		})
 	}

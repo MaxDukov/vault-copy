@@ -3,6 +3,8 @@ package vault_test
 import (
 	"testing"
 
+	"vault-copy/internal/config"
+	"vault-copy/internal/sync"
 	"vault-copy/mocks"
 )
 
@@ -110,5 +112,55 @@ func TestExpandWildcardPathNoMatch(t *testing.T) {
 	// Should return empty list
 	if len(expanded) != 0 {
 		t.Errorf("ExpandWildcardPath() returned %d paths, want 0", len(expanded))
+	}
+}
+
+func TestTransformPathWithWildcard(t *testing.T) {
+	// Test the transformPath function with wildcard paths
+	tests := []struct {
+		name         string
+		sourcePath   string
+		configSource string
+		destination  string
+		expected     string
+	}{
+		{
+			name:         "wildcard path transformation",
+			sourcePath:   "secret/app/123/psql1",
+			configSource: "secret/app/123/psql*",
+			destination:  "secret/app/345",
+			expected:     "secret/app/345/psql1",
+		},
+		{
+			name:         "wildcard path with nested structure",
+			sourcePath:   "secret/app/123/psql/db",
+			configSource: "secret/app/123/psql*",
+			destination:  "secret/app/345",
+			expected:     "secret/app/345/psql/db",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Create a mock sync manager to test transformPath
+			mockSource := mocks.NewMockClient()
+			mockDest := mocks.NewMockClient()
+
+			// Create config
+			config := &config.Config{
+				SourcePath:      tt.configSource,
+				DestinationPath: tt.destination,
+			}
+
+			// Create sync manager
+			manager := sync.NewManager(mockSource, mockDest, config)
+
+			// Call transformPath
+			result := manager.TransformPath(tt.sourcePath, tt.destination)
+
+			if result != tt.expected {
+				t.Errorf("transformPath() = %v, want %v", result, tt.expected)
+			}
+		})
 	}
 }

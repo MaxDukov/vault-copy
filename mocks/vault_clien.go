@@ -2,6 +2,8 @@ package mocks
 
 import (
 	"context"
+	"fmt"
+	"path/filepath"
 	"strings"
 	"sync"
 
@@ -379,9 +381,64 @@ func (m *MockClient) ExpandWildcardPath(pattern string, logger *logger.Logger) (
 		return []string{pattern}, nil
 	}
 
-	// For mock purposes, we'll just return the pattern as is
-	// In a real implementation, this would expand the wildcard
-	return []string{pattern}, nil
+	// Split path into parts
+	parts := strings.Split(pattern, "/")
+	if len(parts) == 0 {
+		return []string{pattern}, nil
+	}
+
+	// Find the part with wildcard
+	wildcardIndex := -1
+	for i, part := range parts {
+		if strings.Contains(part, "*") {
+			wildcardIndex = i
+			break
+		}
+	}
+
+	if wildcardIndex == -1 {
+		// No wildcard found, return as is
+		return []string{pattern}, nil
+	}
+
+	// Get the base path up to the wildcard part
+	basePath := strings.Join(parts[:wildcardIndex], "/")
+	if basePath == "" {
+		basePath = "/"
+	}
+
+	// Get the wildcard pattern
+	wildcardPattern := parts[wildcardIndex]
+
+	// List items in the base path
+	items, err := m.ListSecrets(basePath, logger)
+	if err != nil {
+		return nil, err
+	}
+
+	var matchingPaths []string
+
+	// Check each item against the wildcard pattern
+	for _, item := range items {
+		// Use filepath.Match for pattern matching
+		matched, err := filepath.Match(wildcardPattern, item)
+		if err != nil {
+			return nil, fmt.Errorf("error matching pattern: %v", err)
+		}
+
+		if matched {
+			// Build full path
+			var fullPath string
+			if basePath == "/" || basePath == "" {
+				fullPath = item
+			} else {
+				fullPath = basePath + "/" + item
+			}
+			matchingPaths = append(matchingPaths, fullPath)
+		}
+	}
+
+	return matchingPaths, nil
 }
 
 // GetKVEngineVersion implements KV engine version for tests

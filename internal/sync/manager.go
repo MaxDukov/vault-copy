@@ -123,7 +123,7 @@ func (m *SyncManager) syncSingleSecret(ctx context.Context, stats *SyncStats) (*
 	m.logger.Verbose("Successfully read secret: %s", m.config.SourcePath)
 
 	// Check existence in destination
-	destPath := m.transformPath(m.config.SourcePath, m.config.DestinationPath)
+	destPath := m.TransformPath(m.config.SourcePath, m.config.DestinationPath)
 	m.logger.Verbose("Checking secret existence in destination: %s", destPath)
 
 	exists, err := m.destClient.SecretExists(destPath, m.logger)
@@ -246,7 +246,7 @@ func (m *SyncManager) writeWorker(ctx context.Context, workerID int,
 		default:
 		}
 
-		destPath := m.transformPath(secret.Path, m.config.DestinationPath)
+		destPath := m.TransformPath(secret.Path, m.config.DestinationPath)
 		m.logger.Verbose("Worker %d: processing secret %s -> %s", workerID, secret.Path, destPath)
 
 		// Check existence
@@ -288,10 +288,50 @@ func (m *SyncManager) writeWorker(ctx context.Context, workerID int,
 	m.logger.Verbose("Worker %d: finished", workerID)
 }
 
-// transformPath transforms a source path to a destination path based on the configuration.
+// TransformPath transforms a source path to a destination path based on the configuration.
 // It removes the source path prefix and appends the relative path to the destination path.
-func (m *SyncManager) transformPath(sourcePath, baseDestPath string) string {
+func (m *SyncManager) TransformPath(sourcePath, baseDestPath string) string {
 	m.logger.Verbose("Transforming path: %s -> %s", sourcePath, baseDestPath)
+
+	// For wildcard paths, we need to extract the base path part that was used for expansion
+	// Find the part of sourcePath that matches the config.SourcePath pattern
+	// For example, if config.SourcePath = "secret/app/123/psql*" and sourcePath = "secret/app/123/psql1"
+	// We want to extract "psql1" and append it to baseDestPath
+
+	// Check if config.SourcePath contains wildcard
+	if strings.Contains(m.config.SourcePath, "*") {
+		m.logger.Verbose("Source path contains wildcard, adjusting transformation logic")
+
+		// Split both paths
+		configParts := strings.Split(m.config.SourcePath, "/")
+		sourceParts := strings.Split(sourcePath, "/")
+
+		// Find the part with wildcard in config path
+		wildcardIndex := -1
+		for i, part := range configParts {
+			if strings.Contains(part, "*") {
+				wildcardIndex = i
+				break
+			}
+		}
+
+		if wildcardIndex != -1 && wildcardIndex < len(sourceParts) {
+			// Take everything from wildcard index onwards from source path
+			relativeParts := sourceParts[wildcardIndex:]
+			if len(relativeParts) > 0 {
+				// Join the relative parts
+				relativePath := strings.Join(relativeParts, "/")
+				// Remove any leading * from the first part
+				relativePath = strings.TrimPrefix(relativePath, "*")
+
+				// Remove trailing slash from baseDestPath if present
+				baseDestPath = strings.TrimSuffix(baseDestPath, "/")
+				result := baseDestPath + "/" + relativePath
+				m.logger.Verbose("Result path for wildcard: %s", result)
+				return result
+			}
+		}
+	}
 
 	// Remove the source path prefix from the path
 	relativePath := strings.TrimPrefix(sourcePath, m.config.SourcePath)
