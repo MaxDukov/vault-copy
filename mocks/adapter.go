@@ -37,6 +37,11 @@ func (a *Adapter) GetAllSecrets(ctx context.Context, rootPath string, logger *lo
 	return a.client.GetAllSecrets(ctx, rootPath, logger)
 }
 
+// ExpandWildcardPath implements the vault.Reader interface
+func (a *Adapter) ExpandWildcardPath(pattern string, logger *logger.Logger) ([]string, error) {
+	return a.client.ExpandWildcardPath(pattern, logger)
+}
+
 // WriteSecret implements the vault.Writer interface
 func (a *Adapter) WriteSecret(path string, data map[string]interface{}, logger *logger.Logger) error {
 	return a.client.WriteSecret(path, data, logger)

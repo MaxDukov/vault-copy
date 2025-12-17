@@ -11,6 +11,7 @@ type Reader interface {
 	IsDirectory(path string, logger *logger.Logger) (bool, error)
 	ListSecrets(path string, logger *logger.Logger) ([]string, error)
 	GetAllSecrets(ctx context.Context, rootPath string, logger *logger.Logger) (<-chan *Secret, <-chan error)
+	ExpandWildcardPath(pattern string, logger *logger.Logger) ([]string, error)
 }
 
 // Writer interface for writing secrets

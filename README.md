@@ -66,7 +66,7 @@ export VAULT_DEST_ADDR="https://vault2:8200"
 
 | Parameter | Description | Required | Default value |
 |----------|----------|--------------|----------------------|
-| `--src-path` | Path to secret or folder in source | Yes | - |
+| `--src-path` | Path to secret or folder in source (supports wildcards) | Yes | - |
 | `--dst-path` | Destination path in target Vault | Yes | - |
 | `--recursive` | Recursively copy all secrets from folder | No | false |
 | `--dry-run` | Show what will be copied without performing | No | false |
@@ -76,6 +76,19 @@ export VAULT_DEST_ADDR="https://vault2:8200"
 | `--src-token` | Token for source Vault | No | VAULT_SOURCE_TOKEN or VAULT_TOKEN |
 | `--dst-addr` | Destination Vault URL | No | VAULT_DEST_ADDR or VAULT_ADDR |
 | `--dst-token` | Token for destination Vault | No | VAULT_DEST_TOKEN or VAULT_TOKEN |
+
+## Wildcard Support
+
+The `--src-path` parameter now supports wildcard patterns for copying multiple secrets or directories at once:
+
+- `secret/apps/app1/postgre*` - matches all secrets or directories starting with "postgre" in the specified path
+- `secret/apps/*/database` - matches "database" secrets in all app directories
+
+Example:
+```bash
+# Copy all postgres-related secrets
+./vault-copy --src-path="secret/data/apps/app1/postgre*" --dst-path="secret/data/backup/postgres" --recursive
+```
 
 ## Configuration File
 

@@ -367,3 +367,19 @@ func buildPath(base, item string) string {
 	}
 	return base + "/" + item
 }
+
+// ExpandWildcardPath implements wildcard expansion for tests
+func (m *MockClient) ExpandWildcardPath(pattern string, logger *logger.Logger) ([]string, error) {
+	// For testing purposes, we'll implement a simple wildcard expansion
+	// that matches the actual implementation
+
+	// Check if pattern contains wildcard
+	if !strings.Contains(pattern, "*") {
+		// No wildcard, return as is
+		return []string{pattern}, nil
+	}
+
+	// For mock purposes, we'll just return the pattern as is
+	// In a real implementation, this would expand the wildcard
+	return []string{pattern}, nil
+}

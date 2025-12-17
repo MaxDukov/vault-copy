@@ -69,6 +69,24 @@ func (m *SyncManager) Sync(ctx context.Context) (*SyncStats, error) {
 	m.logger.Verbose("  Source Vault: %s", m.config.SourceAddr)
 	m.logger.Verbose("  Destination Vault: %s", m.config.DestAddr)
 
+	// Check if source path contains wildcard
+	if strings.Contains(m.config.SourcePath, "*") {
+		m.logger.Verbose("Source path contains wildcard: %s", m.config.SourcePath)
+		// Expand wildcard paths
+		expandedPaths, err := m.sourceClient.ExpandWildcardPath(m.config.SourcePath, m.logger)
+		if err != nil {
+			return nil, fmt.Errorf("error expanding wildcard path: %v", err)
+		}
+
+		m.logger.Verbose("Expanded wildcard path to %d paths", len(expandedPaths))
+		if len(expandedPaths) == 0 {
+			return nil, fmt.Errorf("no paths matched wildcard pattern: %s", m.config.SourcePath)
+		}
+
+		// Sync each expanded path
+		return m.syncMultiplePaths(ctx, stats, expandedPaths)
+	}
+
 	// Check if source is a directory
 	m.logger.Verbose("Checking if source is a directory: %s", m.config.SourcePath)
 	isDir, err := m.sourceClient.IsDirectory(m.config.SourcePath, m.logger)
@@ -287,4 +305,98 @@ func (m *SyncManager) transformPath(sourcePath, baseDestPath string) string {
 	}
 
 	return baseDestPath
+}
+
+// syncMultiplePaths synchronizes multiple paths (from wildcard expansion) from the source to the destination.
+func (m *SyncManager) syncMultiplePaths(ctx context.Context, stats *SyncStats, paths []string) (*SyncStats, error) {
+	m.logger.Info("Syncing %d paths from wildcard expansion", len(paths))
+
+	// Create channels for parallel processing
+	secretsChan := make(chan *vault.Secret, m.config.ParallelWorkers*2)
+	errChan := make(chan error, m.config.ParallelWorkers)
+
+	var wg sync.WaitGroup
+
+	// Start readers for all paths
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		defer close(secretsChan)
+
+		for _, path := range paths {
+			// Check if path is a directory
+			isDir, err := m.sourceClient.IsDirectory(path, m.logger)
+			if err != nil {
+				m.logger.Error("Error checking if path is directory %s: %v", path, err)
+				errChan <- fmt.Errorf("error checking path %s: %v", path, err)
+				return
+			}
+
+			if isDir {
+				// Get all secrets under this directory
+				sourceSecrets, sourceErrChan := m.sourceClient.GetAllSecrets(ctx, path, m.logger)
+
+				for {
+					select {
+					case secret, ok := <-sourceSecrets:
+						if !ok {
+							goto nextPath
+						}
+						atomic.AddInt64(&stats.SecretsRead, 1)
+						m.logger.Verbose("Read secret: %s", secret.Path)
+						secretsChan <- secret
+					case err := <-sourceErrChan:
+						if err != nil {
+							m.logger.Error("Error getting secrets from %s: %v", path, err)
+							errChan <- fmt.Errorf("error getting secrets from %s: %v", path, err)
+							return
+						}
+						goto nextPath
+					case <-ctx.Done():
+						m.logger.Verbose("Context cancelled while reading secrets from %s", path)
+						return
+					}
+				}
+			nextPath:
+			} else {
+				// Single secret
+				secret, err := m.sourceClient.ReadSecret(path, m.logger)
+				if err != nil {
+					m.logger.Error("Error reading secret %s: %v", path, err)
+					errChan <- fmt.Errorf("error reading secret %s: %v", path, err)
+					return
+				}
+				atomic.AddInt64(&stats.SecretsRead, 1)
+				m.logger.Verbose("Read secret: %s", secret.Path)
+				secretsChan <- secret
+			}
+		}
+	}()
+
+	// Start writers
+	writerWg := sync.WaitGroup{}
+	for i := 0; i < m.config.ParallelWorkers; i++ {
+		writerWg.Add(1)
+		go func(workerID int) {
+			defer writerWg.Done()
+			m.writeWorker(ctx, workerID, secretsChan, errChan, stats)
+		}(i)
+	}
+
+	// Wait for all goroutines to complete
+	go func() {
+		wg.Wait()
+		m.logger.Verbose("Finished reading all secrets from expanded paths")
+		writerWg.Wait()
+		m.logger.Verbose("Finished writing all secrets")
+		close(errChan)
+	}()
+
+	// Process errors
+	for err := range errChan {
+		atomic.AddInt64(&stats.Errors, 1)
+		m.logger.Error("Error: %v", err)
+	}
+
+	return stats, nil
 }
