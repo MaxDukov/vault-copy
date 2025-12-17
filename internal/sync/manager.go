@@ -291,19 +291,26 @@ func (m *SyncManager) writeWorker(ctx context.Context, workerID int,
 // transformPath transforms a source path to a destination path based on the configuration.
 // It removes the source path prefix and appends the relative path to the destination path.
 func (m *SyncManager) transformPath(sourcePath, baseDestPath string) string {
+	m.logger.Verbose("Transforming path: %s -> %s", sourcePath, baseDestPath)
+
 	// Remove the source path prefix from the path
 	relativePath := strings.TrimPrefix(sourcePath, m.config.SourcePath)
 	if strings.HasPrefix(relativePath, "/") {
 		relativePath = relativePath[1:]
 	}
 
+	m.logger.Verbose("Relative path after prefix removal: %s", relativePath)
+
 	// Simply concatenate baseDestPath and relativePath
 	if relativePath != "" {
 		// Remove trailing slash from baseDestPath if present
 		baseDestPath = strings.TrimSuffix(baseDestPath, "/")
-		return baseDestPath + "/" + relativePath
+		result := baseDestPath + "/" + relativePath
+		m.logger.Verbose("Result path: %s", result)
+		return result
 	}
 
+	m.logger.Verbose("Result path (no relative path): %s", baseDestPath)
 	return baseDestPath
 }
 

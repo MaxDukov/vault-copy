@@ -68,7 +68,7 @@ func (c *Client) BatchWriteSecrets(ctx context.Context, secrets <-chan *Secret, 
 			}
 
 			// Transform path from source to destination
-			destPath := TransformPath(secret.Path, basePath)
+			destPath := TransformPath(secret.Path, basePath, logger)
 
 			err := c.WriteSecret(destPath, secret.Data, logger)
 			if err != nil {
@@ -83,46 +83,93 @@ func (c *Client) BatchWriteSecrets(ctx context.Context, secrets <-chan *Secret, 
 // TransformPath transforms a source path to a destination path.
 // It extracts the relative path from the source path and appends it to the base destination path.
 // The function takes the path after engine/data/ and removes the first segment, then appends to destination.
-func TransformPath(sourcePath, baseDestPath string) string {
+func TransformPath(sourcePath, baseDestPath string, logger *logger.Logger) string {
+	if logger != nil {
+		logger.Verbose("Transforming path: %s -> %s", sourcePath, baseDestPath)
+	}
+
 	parts := strings.Split(sourcePath, "/")
 	if len(parts) < 3 {
+		if logger != nil {
+			logger.Verbose("Path has less than 3 parts, returning baseDestPath: %s", baseDestPath)
+		}
 		return baseDestPath
 	}
 
 	// Handle case when source doesn't have /data/ prefix
 	if !strings.Contains(sourcePath, "/data/") {
+		if logger != nil {
+			logger.Verbose("Source path doesn't contain /data/ prefix")
+		}
 		// For paths like "secret/apps/config", take everything after engine
 		relativePath := strings.TrimPrefix(sourcePath, parts[0]+"/")
 		relativeParts := strings.Split(relativePath, "/")
 
+		if logger != nil {
+			logger.Verbose("Relative path: %s, relative parts: %v", relativePath, relativeParts)
+		}
+
 		if strings.Contains(baseDestPath, "/data/") {
+			if logger != nil {
+				logger.Verbose("Base destination path contains /data/")
+			}
 			// Take everything except the first part
 			if len(relativeParts) > 1 {
 				restPath := strings.Join(relativeParts[1:], "/")
-				return baseDestPath + "/" + restPath
+				result := baseDestPath + "/" + restPath
+				if logger != nil {
+					logger.Verbose("Result with rest path: %s", result)
+				}
+				return result
 			}
-			return baseDestPath + "/" + relativePath
+			result := baseDestPath + "/" + relativePath
+			if logger != nil {
+				logger.Verbose("Result with relative path: %s", result)
+			}
+			return result
 		}
 		// If baseDestPath doesn't have /data/, add engine and /data/
 		if len(relativeParts) > 1 {
 			restPath := strings.Join(relativeParts[1:], "/")
-			return parts[0] + "/data/" + baseDestPath + "/" + restPath
+			result := parts[0] + "/data/" + baseDestPath + "/" + restPath
+			if logger != nil {
+				logger.Verbose("Result with engine/data and rest path: %s", result)
+			}
+			return result
 		}
-		return parts[0] + "/data/" + baseDestPath + "/" + relativePath
+		result := parts[0] + "/data/" + baseDestPath + "/" + relativePath
+		if logger != nil {
+			logger.Verbose("Result with engine/data and relative path: %s", result)
+		}
+		return result
 	}
 
 	// Take path after engine/data/
 	engineAndData := parts[0] + "/" + parts[1] + "/"
 	relativePath := strings.TrimPrefix(sourcePath, engineAndData)
 
+	if logger != nil {
+		logger.Verbose("Source has /data/ prefix, engineAndData: %s, relativePath: %s", engineAndData, relativePath)
+	}
+
 	// Split relative path to get segments
 	relativeParts := strings.Split(relativePath, "/")
 	if len(relativeParts) == 0 {
+		if logger != nil {
+			logger.Verbose("No relative parts, returning baseDestPath: %s", baseDestPath)
+		}
 		return baseDestPath
+	}
+
+	if logger != nil {
+		logger.Verbose("Relative parts: %v", relativeParts)
 	}
 
 	// If baseDestPath already contains engine, use it
 	if strings.Contains(baseDestPath, "/data/") {
+		if logger != nil {
+			logger.Verbose("Base destination path contains /data/")
+		}
 		// Take all parts except the first one (remove the first segment)
 		// Examples:
 		// - apps/database -> database
@@ -130,16 +177,32 @@ func TransformPath(sourcePath, baseDestPath string) string {
 		// - source/app1 -> app1 (but test expects source/app1, so maybe this is wrong?)
 		if len(relativeParts) > 1 {
 			restPath := strings.Join(relativeParts[1:], "/")
-			return baseDestPath + "/" + restPath
+			result := baseDestPath + "/" + restPath
+			if logger != nil {
+				logger.Verbose("Result with rest path: %s", result)
+			}
+			return result
 		}
 		// If only one segment, take it
-		return baseDestPath + "/" + relativePath
+		result := baseDestPath + "/" + relativePath
+		if logger != nil {
+			logger.Verbose("Result with relative path: %s", result)
+		}
+		return result
 	}
 
 	// Otherwise add engine from source
 	if len(relativeParts) > 1 {
 		restPath := strings.Join(relativeParts[1:], "/")
-		return parts[0] + "/data/" + baseDestPath + "/" + restPath
+		result := parts[0] + "/data/" + baseDestPath + "/" + restPath
+		if logger != nil {
+			logger.Verbose("Result with engine/data and rest path: %s", result)
+		}
+		return result
 	}
-	return parts[0] + "/data/" + baseDestPath + "/" + relativePath
+	result := parts[0] + "/data/" + baseDestPath + "/" + relativePath
+	if logger != nil {
+		logger.Verbose("Result with engine/data and relative path: %s", result)
+	}
+	return result
 }

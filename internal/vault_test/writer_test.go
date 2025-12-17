@@ -110,7 +110,7 @@ func TestBatchWriteSecrets(t *testing.T) {
 
 	// Verify secrets were written with transformed paths
 	for _, secret := range secrets {
-		destPath := vault.TransformPath(secret.Path, "secret/data/destination")
+		destPath := vault.TransformPath(secret.Path, "secret/data/destination", logger)
 		storedSecret, err := mockClient.ReadSecret(destPath, logger)
 		if err != nil {
 			t.Errorf("ReadSecret() for %s error = %v", destPath, err)
@@ -167,7 +167,8 @@ func TestTransformPath(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := vault.TransformPath(tt.sourcePath, tt.baseDest)
+			logger := logger.NewLogger(&config.Config{})
+			got := vault.TransformPath(tt.sourcePath, tt.baseDest, logger)
 			if got != tt.want {
 				t.Errorf("TransformPath() = %v, want %v", got, tt.want)
 			}

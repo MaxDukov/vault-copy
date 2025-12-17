@@ -1,7 +1,9 @@
 package vault
 
 import (
+	"fmt"
 	"strings"
+	"vault-copy/internal/logger"
 
 	"github.com/hashicorp/vault/api"
 )
@@ -63,4 +65,48 @@ func (c *Client) GetKVEngine(path string) (string, error) {
 		return "secret", nil // Default
 	}
 	return parts[0], nil
+}
+
+// GetKVEngineVersion gets the version of a KV engine from Vault
+func (c *Client) GetKVEngineVersion(engine string, logger *logger.Logger) (int, error) {
+	logger.Verbose("Getting KV engine version for: %s", engine)
+
+	// Get engine configuration
+	path := fmt.Sprintf("sys/mounts/%s", engine)
+	secret, err := c.client.Logical().Read(path)
+	if err != nil {
+		logger.Error("Error reading engine config for %s: %v", engine, err)
+		return 0, fmt.Errorf("error reading engine config for %s: %v", engine, err)
+	}
+
+	if secret == nil || secret.Data == nil {
+		logger.Verbose("No configuration found for engine: %s", engine)
+		return 0, fmt.Errorf("no configuration found for engine: %s", engine)
+	}
+
+	// Extract options
+	options, ok := secret.Data["options"].(map[string]interface{})
+	if !ok {
+		logger.Verbose("No options found for engine: %s, assuming v1", engine)
+		return 1, nil // Default to v1 if no options
+	}
+
+	// Get version from options
+	versionStr, ok := options["version"].(string)
+	if !ok {
+		logger.Verbose("No version found in options for engine: %s, assuming v1", engine)
+		return 1, nil // Default to v1 if no version
+	}
+
+	// Convert version string to int
+	if versionStr == "1" {
+		logger.Verbose("Engine %s is KV version 1", engine)
+		return 1, nil
+	} else if versionStr == "2" {
+		logger.Verbose("Engine %s is KV version 2", engine)
+		return 2, nil
+	} else {
+		logger.Verbose("Unknown version %s for engine: %s, assuming v1", versionStr, engine)
+		return 1, nil // Default to v1 for unknown versions
+	}
 }

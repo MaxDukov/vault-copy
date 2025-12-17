@@ -383,3 +383,9 @@ func (m *MockClient) ExpandWildcardPath(pattern string, logger *logger.Logger) (
 	// In a real implementation, this would expand the wildcard
 	return []string{pattern}, nil
 }
+
+// GetKVEngineVersion implements KV engine version for tests
+func (m *MockClient) GetKVEngineVersion(engine string, logger *logger.Logger) (int, error) {
+	// For testing purposes, we'll return a fixed version
+	return 2, nil // Assume KV v2 for tests
+}

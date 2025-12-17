@@ -26,4 +26,5 @@ type ClientInterface interface {
 	Reader
 	Writer
 	GetKVEngine(path string) (string, error)
+	GetKVEngineVersion(engine string, logger *logger.Logger) (int, error)
 }

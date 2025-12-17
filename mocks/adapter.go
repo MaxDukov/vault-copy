@@ -61,3 +61,8 @@ func (a *Adapter) BatchWriteSecrets(ctx context.Context, secrets <-chan *vault.S
 func (a *Adapter) GetKVEngine(path string) (string, error) {
 	return a.client.GetKVEngine(path)
 }
+
+// GetKVEngineVersion implements the vault.ClientInterface
+func (a *Adapter) GetKVEngineVersion(engine string, logger *logger.Logger) (int, error) {
+	return a.client.GetKVEngineVersion(engine, logger)
+}
